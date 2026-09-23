@@ -52,6 +52,32 @@ export interface Registro {
   actualizado_en: string;
 }
 
+export interface Evidencia {
+  id: number;
+  registro_id: number;
+  ranura: string;
+  etiqueta: string;
+  nombre_original: string;
+  tipo_mime: string;
+  tamano_bytes: number;
+  subido_por: string;
+  subido_en: string;
+  sync_estado: "pendiente" | "ok" | "error";
+}
+
+export interface Festivo {
+  fecha: string;
+  nombre: string;
+}
+
+export interface SemanaInfo {
+  n: number;
+  lunes: string;
+  domingo: string;
+  mes: string;
+  festivos: Festivo[];
+}
+
 export interface SesionToken {
   access_token: string;
   token_type: string;

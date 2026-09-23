@@ -1,8 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiError, apiFetch } from "../../api/client";
-import type { Registro } from "../../api/types";
+import type { Actividades, Registro, SemanaInfo } from "../../api/types";
 import { useAuth } from "../../context/AuthContext";
+import { Adjuntos } from "./Adjuntos";
 import { BODEGA_OPCIONES, ESTADOS_POR_ACTIVIDAD } from "./estadosPorActividad";
 
 const ACTIVIDAD_POR_ROL: Record<string, "inventario" | "calidad" | "pistoleo"> = {
@@ -11,27 +12,54 @@ const ACTIVIDAD_POR_ROL: Record<string, "inventario" | "calidad" | "pistoleo"> =
   auxiliar: "pistoleo",
 };
 
+const MESES_CORTO = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+
+function formatoRango(lunes: string, domingo: string): string {
+  const [, , dl] = lunes.split("-").map(Number);
+  const [, md, dd] = domingo.split("-").map(Number);
+  return `${dl} al ${dd} de ${MESES_CORTO[md - 1]}`;
+}
+
 export function Operario() {
   const { sesion } = useAuth();
   const queryClient = useQueryClient();
-  if (!sesion || !sesion.tiendaId) return null;
-
-  const actividad = ACTIVIDAD_POR_ROL[sesion.rol];
+  const tiendaId = sesion?.tiendaId ?? null;
+  const actividad = sesion ? ACTIVIDAD_POR_ROL[sesion.rol] : "inventario";
 
   const { data: semanasAbiertas } = useQuery({
-    queryKey: ["semanas-abiertas", actividad, sesion.tiendaId],
+    queryKey: ["semanas-abiertas", actividad, tiendaId],
     queryFn: () =>
-      apiFetch<number[]>(`/api/v1/registros/semanas-abiertas?actividad=${actividad}&tienda_id=${sesion.tiendaId}`, {
-        token: sesion.token,
+      apiFetch<number[]>(`/api/v1/registros/semanas-abiertas?actividad=${actividad}&tienda_id=${tiendaId}`, {
+        token: sesion!.token,
       }),
+    enabled: !!sesion && !!tiendaId,
   });
 
   const { data: registros } = useQuery({
-    queryKey: ["registros", actividad, sesion.tiendaId],
-    queryFn: () => apiFetch<Registro[]>(`/api/v1/registros?actividad=${actividad}`, { token: sesion.token }),
+    queryKey: ["registros", actividad, tiendaId],
+    queryFn: () => apiFetch<Registro[]>(`/api/v1/registros?actividad=${actividad}`, { token: sesion!.token }),
+    enabled: !!sesion && !!tiendaId,
+  });
+
+  const { data: actividades } = useQuery({
+    queryKey: ["actividades"],
+    queryFn: () => apiFetch<Actividades>("/api/v1/actividades"),
+    enabled: !!sesion,
   });
 
   const semanaActual = semanasAbiertas?.[0];
+
+  const { data: semanaInfo } = useQuery({
+    queryKey: ["calendario", semanaActual],
+    queryFn: () => apiFetch<SemanaInfo>(`/api/v1/calendario/${semanaActual}`),
+    enabled: semanaActual != null,
+  });
+
+  if (!sesion || !tiendaId) return null;
+
   const registroActual = registros?.find((r) => r.semana === semanaActual);
 
   return (
@@ -48,17 +76,29 @@ export function Operario() {
             <div className="mono" style={{ fontSize: 19, fontWeight: 600 }}>
               {semanaActual ?? "—"}
             </div>
+            {semanaInfo && <div style={{ fontSize: 11, color: "var(--tenue)" }}>{formatoRango(semanaInfo.lunes, semanaInfo.domingo)}</div>}
           </div>
         </div>
 
-        {semanaActual != null && (
+        {semanaInfo && semanaInfo.festivos.length > 0 && (
+          <div className="sem-fest">
+            {semanaInfo.festivos.map((f) => (
+              <span key={f.fecha} className="chip cuad e-ausen">
+                {f.nombre}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {semanaActual != null && actividades && (
           <FormularioSemana
             actividad={actividad}
-            tiendaId={sesion.tiendaId}
+            tiendaId={tiendaId}
             semana={semanaActual}
             token={sesion.token}
             registro={registroActual}
-            onGuardado={() => queryClient.invalidateQueries({ queryKey: ["registros", actividad, sesion.tiendaId] })}
+            adjuntos={actividades[actividad].adjuntos}
+            onGuardado={() => queryClient.invalidateQueries({ queryKey: ["registros", actividad, tiendaId] })}
           />
         )}
 
@@ -102,6 +142,7 @@ function FormularioSemana({
   semana,
   token,
   registro,
+  adjuntos,
   onGuardado,
 }: {
   actividad: "inventario" | "calidad" | "pistoleo";
@@ -109,6 +150,7 @@ function FormularioSemana({
   semana: number;
   token: string;
   registro: Registro | undefined;
+  adjuntos: Actividades[keyof Actividades]["adjuntos"];
   onGuardado: () => void;
 }) {
   const [estado, setEstado] = useState(registro?.estado ?? "");
@@ -199,6 +241,12 @@ function FormularioSemana({
         <button className="btn btn-p" onClick={guardar} disabled={guardando}>
           Guardar
         </button>
+
+        {registro ? (
+          <Adjuntos registroId={registro.id} adjuntos={adjuntos} token={token} />
+        ) : (
+          <p className="nota-pie">Guarda el estado primero para poder adjuntar archivos.</p>
+        )}
       </div>
     </div>
   );

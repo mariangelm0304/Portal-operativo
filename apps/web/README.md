@@ -19,10 +19,10 @@ backend, `JAMAR2026` para "Entrar como administrador".
 
 - **Ingreso**: completo — tienda/zona, persona (maestro + "No estoy en la lista"), PIN,
   entrada de administrador.
-- **Operario**: flujo base completo (estado + campos propios de la actividad, historial).
-  Pendiente: subir evidencias (fotos/PDF/Excel) — el endpoint ya existe en el backend
-  (`POST /api/v1/evidencias/{registro_id}/{ranura}`), falta la UI de adjuntos con
-  miniaturas como en el original.
+- **Operario**: completo — estado + campos propios de la actividad, semana con rango de
+  fechas y festivos, historial, y adjuntos (subir/listar/borrar evidencias, simples y
+  múltiples con límite). El adjunto se habilita después de guardar el estado, porque el
+  backend asocia cada evidencia a un `registro_id` ya existente.
 - **Admin**: Resumen (KPIs), Trazabilidad y Maestro (solo lectura) conectados a la API.
   Pendiente: matrices de cumplimiento por actividad (inventario/calidad/pistoleo), tab
   Archivos, edición de PIN/config desde la UI (los endpoints ya existen:
