@@ -30,9 +30,9 @@ def exportar_csv(claims: Claims = Depends(requiere_admin), db: Session = Depends
             [
                 tienda.nombre if tienda else r.tienda_id,
                 tienda.zona if tienda else "",
-                r.actividad.value,
+                r.actividad,
                 r.semana,
-                r.estado.value,
+                r.estado,
                 r.reportado_por,
                 r.reportado_rol,
                 r.actualizado_en.isoformat(),
@@ -57,9 +57,9 @@ def exportar_json(claims: Claims = Depends(requiere_admin), db: Session = Depend
         "registros": [
             {
                 "tienda_id": r.tienda_id,
-                "actividad": r.actividad.value,
+                "actividad": r.actividad,
                 "semana": r.semana,
-                "estado": r.estado.value,
+                "estado": r.estado,
                 "datos": r.datos,
                 "reportado_por": r.reportado_por,
                 "reportado_rol": r.reportado_rol,

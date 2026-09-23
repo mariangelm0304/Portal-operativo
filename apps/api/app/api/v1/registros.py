@@ -56,7 +56,10 @@ def semanas_abiertas(
             .filter(Registro.actividad == actividad, Registro.tienda_id == objetivo_tienda, Registro.semana == sem)
             .first()
         )
-        if r is None or r.estado.value in ("PENDIENTE", "SIN_DATO"):
+        # Los modelos SQLAlchemy guardan estos campos como str plano (columna String), no
+        # como el Enum de Python — a diferencia de los schemas Pydantic, que sí coaccionan
+        # el valor al Enum. Por eso aquí se compara contra strings, no se usa `.value`.
+        if r is None or r.estado in ("PENDIENTE", "SIN_DATO"):
             abiertas.append(sem)
     return abiertas
 

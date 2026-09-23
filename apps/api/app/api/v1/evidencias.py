@@ -41,14 +41,14 @@ def subir_evidencia(
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "El archivo supera los 15 MB")
 
     extension = Path(archivo.filename or "").suffix
-    ruta = f"{registro.tienda_id}/{registro.actividad.value}/{registro.semana}/{ranura}-{uuid.uuid4().hex}{extension}"
+    ruta = f"{registro.tienda_id}/{registro.actividad}/{registro.semana}/{ranura}-{uuid.uuid4().hex}{extension}"
     storage = get_storage()
     storage.guardar(ruta, contenido)
 
     evidencia = Evidencia(
         registro_id=registro.id,
         ranura=ranura,
-        etiqueta=NOMBRE_RANURA.get(f"{registro.actividad.value}.{ranura}", ranura),
+        etiqueta=NOMBRE_RANURA.get(f"{registro.actividad}.{ranura}", ranura),
         nombre_original=archivo.filename or ranura,
         ruta_almacenamiento=ruta,
         tipo_mime=archivo.content_type or "application/octet-stream",
