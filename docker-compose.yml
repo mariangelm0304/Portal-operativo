@@ -1,0 +1,42 @@
+# Opcional: solo para quien prefiera contenedores en vez de instalar Postgres/Node
+# nativos. El desarrollo local no lo requiere (ver README.md).
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: portal
+      POSTGRES_PASSWORD: portal
+      POSTGRES_DB: portal_operativo
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build: ./apps/api
+    restart: unless-stopped
+    env_file: ./apps/api/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://portal:portal@postgres:5432/portal_operativo
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+    volumes:
+      - ./apps/api:/app
+
+  web:
+    build: ./apps/web
+    restart: unless-stopped
+    env_file: ./apps/web/.env
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+
+volumes:
+  pgdata:

@@ -1,0 +1,30 @@
+# --- Python / FastAPI (apps/api) ---
+apps/api/.venv/
+apps/api/__pycache__/
+apps/api/**/__pycache__/
+apps/api/*.egg-info/
+apps/api/.pytest_cache/
+apps/api/uploads/
+
+# --- Node / React (apps/web) ---
+apps/web/node_modules/
+apps/web/dist/
+apps/web/.vite/
+
+# --- Entorno / secretos ---
+.env
+.env.*
+!.env.example
+apps/api/.env
+apps/web/.env
+!apps/api/.env.example
+!apps/web/.env.example
+*.key
+*.pem
+credenciales-google.json
+
+# --- Editor / SO ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
