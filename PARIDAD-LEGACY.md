@@ -79,9 +79,10 @@ Archivo: `apps/web/src/pages/Operario/Operario.tsx` (+ `Adjuntos.tsx`).
 
 ## 4. Frontend — Admin
 
-Archivo: `apps/web/src/pages/Admin/Admin.tsx`. Esta sigue siendo el área con más brecha: hoy
-tiene 3 tabs (Resumen básico, Trazabilidad simple, Maestro ya editable — ver 4.6) contra 7 en
-el original. Faltan enteros los tabs de matrices por actividad y Archivos (4.3, 4.4).
+Archivo: `apps/web/src/pages/Admin/Admin.tsx`. Hoy tiene 4 tabs (Resumen básico, Archivos,
+Trazabilidad simple, Maestro ya editable — ver 4.4 y 4.6) contra 7 en el original. Lo que falta
+por completo son los 3 tabs de matrices por actividad (4.3) — el resto son mejoras sobre tabs
+que ya existen.
 
 ### 4.1 Filtros globales (barra superior)
 
@@ -119,12 +120,12 @@ ni siquiera como placeholder.
 el endpoint 2.2. La grilla de color + tooltip conviene como componente compartido
 (`apps/web/src/components/Matriz.tsx` o similar) porque se repite igual en los 3.
 
-### 4.4 Tab Archivos — no existe
+### 4.4 Tab Archivos — ✅ hecho (Fase D)
 
-Todo el tab (líneas 1638-1726): KPIs de archivos/peso/última actualización, filtro por
-actividad y zona, tabla de archivos con link "Abrir en Drive" (ahora sería "Descargar", contra
-`GET /api/v1/evidencias/{id}/archivo`), botón "Actualizar" y botón "Purgar antiguos" con modal
-de confirmación. **No hay ni un placeholder de este tab hoy.**
+KPIs (archivos/peso/última actualización vía `GET /api/v1/admin/evidencias/resumen`), filtro
+por actividad y zona, tabla con botón "Descargar" real, "Actualizar" y "Purgar antiguos"
+(`POST /api/v1/admin/evidencias/purgar`, con confirmación nativa en vez de modal — ver 4.7,
+todavía no hay un componente Modal reusable).
 
 ### 4.5 Tab Trazabilidad — existe pero muy reducido
 
@@ -199,7 +200,7 @@ No todo pesa igual. Orden sugerido:
   - Card de configuración: cambiar PIN admin, retención (llaman a endpoints ya existentes).
   - Card "Revisiones pendientes del dato" — requiere exponer `alertas` (sección 2.6).
 
-- [ ] **Fase D — Admin: tab Archivos**
+- [x] **Fase D — Admin: tab Archivos**
   - Backend: `GET /admin/evidencias/resumen`, `POST /admin/evidencias/purgar` (sección 2.4, 2.5).
   - Frontend: nuevo tab con KPIs, filtros actividad/zona, tabla con descarga, botón purgar con
     confirmación (Modal).
