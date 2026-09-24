@@ -3,6 +3,11 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class EvidenciaResumen(BaseModel):
+    id: int
+    nombre_original: str
+
+
 class TrazaOut(BaseModel):
     id: int
     actividad: str
@@ -13,5 +18,7 @@ class TrazaOut(BaseModel):
     por: str
     rol: str
     en: datetime
+    evidencias: list[EvidenciaResumen] = []
+    link: str | None = None
 
     model_config = {"from_attributes": True}

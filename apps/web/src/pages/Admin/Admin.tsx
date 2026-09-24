@@ -34,6 +34,20 @@ interface Traza {
   por: string;
   rol: string;
   en: string;
+  evidencias: { id: number; nombre_original: string }[];
+  link: string | null;
+}
+
+interface ResumenTrazas {
+  registros_portal: number;
+  con_evidencia: number;
+  personas: number;
+  historicos_migrados: number;
+}
+
+interface PersonaTop {
+  nombre: string;
+  cantidad: number;
 }
 
 interface ResumenEvidencias {
@@ -539,41 +553,148 @@ function TabTrazas({ token }: { token: string }) {
     queryKey: ["admin-trazas"],
     queryFn: () => apiFetch<Traza[]>("/api/v1/trazas", { token }),
   });
+  const { data: resumen } = useQuery({
+    queryKey: ["admin-trazas-resumen"],
+    queryFn: () => apiFetch<ResumenTrazas>("/api/v1/trazas/resumen", { token }),
+  });
+  const { data: top } = useQuery({
+    queryKey: ["admin-trazas-top"],
+    queryFn: () => apiFetch<PersonaTop[]>("/api/v1/trazas/top-personas", { token }),
+  });
+
+  async function bajarEvidencia(id: number, nombre: string) {
+    await descargarArchivo(`/api/v1/evidencias/${id}/archivo`, token, nombre);
+  }
 
   return (
-    <div className="tj">
-      <div className="tj-h">
-        <h3>Trazabilidad</h3>
+    <>
+      <div className="kpis">
+        <div className="kpi a-marca">
+          <div className="k-l">Registros desde el portal</div>
+          <div className="k-v">{resumen?.registros_portal ?? "—"}</div>
+          <div className="k-s">con nombre, fecha y hora</div>
+        </div>
+        <div className="kpi a-ok">
+          <div className="k-l">Con evidencia adjunta</div>
+          <div className="k-v">{resumen?.con_evidencia ?? "—"}</div>
+          <div className="k-s">
+            {resumen?.registros_portal ? `${Math.round((resumen.con_evidencia / resumen.registros_portal) * 100)} % de los registros` : ""}
+          </div>
+        </div>
+        <div className="kpi a-ausen">
+          <div className="k-l">Personas que han registrado</div>
+          <div className="k-v">{resumen?.personas ?? "—"}</div>
+          <div className="k-s">de las 21 tiendas</div>
+        </div>
+        <div className="kpi a-medio">
+          <div className="k-l">Registros históricos migrados</div>
+          <div className="k-v">{resumen?.historicos_migrados ?? "—"}</div>
+          <div className="k-s">del tablero anterior, sin sello de hora</div>
+        </div>
       </div>
-      <div className="tabla-env">
-        <table className="dat">
-          <thead>
-            <tr>
-              <th>Cuándo</th>
-              <th>Tienda</th>
-              <th>Actividad</th>
-              <th>Semana</th>
-              <th>Estado</th>
-              <th>Por</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data?.map((t) => (
-              <tr key={t.id}>
-                <td>{new Date(t.en).toLocaleString("es-CO")}</td>
-                <td>{t.tienda_nombre}</td>
-                <td>{t.actividad}</td>
-                <td>{t.semana}</td>
-                <td>{t.estado}</td>
-                <td>
-                  {t.por} ({t.rol})
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="g2">
+        <div className="tj">
+          <div className="tj-h">
+            <h3>Registros del portal</h3>
+            <span className="nota">más recientes primero</span>
+          </div>
+          <div className="tj-b" style={{ padding: 0 }}>
+            {data?.length ? (
+              <div className="tabla-env">
+                <table className="dat">
+                  <thead>
+                    <tr>
+                      <th>Enviado</th>
+                      <th>Tienda</th>
+                      <th>Actividad</th>
+                      <th>Sem.</th>
+                      <th>Estado</th>
+                      <th>Quién</th>
+                      <th>Evidencia</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.map((t) => (
+                      <tr key={t.id}>
+                        <td className="mono" style={{ fontSize: 11, whiteSpace: "nowrap" }}>
+                          {new Date(t.en).toLocaleString("es-CO")}
+                        </td>
+                        <td>
+                          <b>{t.tienda_nombre}</b>
+                        </td>
+                        <td>{t.actividad}</td>
+                        <td className="mono">S{t.semana}</td>
+                        <td>
+                          <span className="chip e-pend">{t.estado}</span>
+                        </td>
+                        <td>
+                          {t.por}
+                          <br />
+                          <span style={{ fontSize: 10.5, color: "var(--tenue)" }}>{t.rol}</span>
+                        </td>
+                        <td>
+                          {t.evidencias.length ? (
+                            t.evidencias.map((e) => (
+                              <button key={e.id} className="btn btn-sm" style={{ margin: "1px 0", display: "block" }} onClick={() => bajarEvidencia(e.id, e.nombre_original)}>
+                                {e.nombre_original.slice(0, 20)}
+                              </button>
+                            ))
+                          ) : t.link ? (
+                            <a href={t.link} target="_blank" rel="noopener" className="pill">
+                              enlace externo
+                            </a>
+                          ) : (
+                            <span style={{ color: "var(--tenue)" }}>—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="vacio">Todavía nadie ha registrado desde el portal.</div>
+            )}
+          </div>
+        </div>
+        <div className="pila">
+          <div className="tj">
+            <div className="tj-h">
+              <h3>Quién más reporta</h3>
+            </div>
+            <div className="tj-b">
+              {top?.length ? (
+                <div className="lista">
+                  {top.map((p) => (
+                    <div key={p.nombre} className="item">
+                      <div className="item-b">
+                        <div className="item-t">
+                          {p.nombre}
+                          <small style={{ marginLeft: "auto" }}>{p.cantidad}</small>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="vacio">Aún sin registros.</div>
+              )}
+            </div>
+          </div>
+          <div className="tj">
+            <div className="tj-h">
+              <h3>Qué cambia con el portal</h3>
+            </div>
+            <div className="tj-b nota-pie">
+              Cada registro guarda quién lo hizo, desde qué tienda, para qué semana y a qué hora exacta — a
+              diferencia del portal original, esta traza la arma el servidor a partir de la sesión autenticada,
+              no el navegador. El histórico migrado conserva el nombre del responsable de cada tienda, pero no
+              la hora de envío, porque el tablero anterior no la capturaba.
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
