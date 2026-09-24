@@ -64,14 +64,14 @@ más ricos, no un reemplazo.
 
 Archivo: `apps/web/src/pages/Operario/Operario.tsx` (+ `Adjuntos.tsx`).
 
-| # | Elemento | Original | Falta hoy |
+| # | Elemento | Original | Estado |
 |---|---|---|---|
-| 3.1 | Selector de semanas atrasadas (chips S18, S19… clicables para ponerse a corregir semanas viejas, no solo la vigente) | líneas 890-899 | El backend ya devuelve `semanas-abiertas` con varias semanas; el frontend solo usa `[0]` (la vigente) — falta el selector |
-| 3.2 | Campo "Motivo de la ausencia" (select `AUSENCIAS`) cuando `estado=AUSENCIA` | líneas 989-995 | No existe el campo ni el estado se valida como incompleto sin él |
-| 3.3 | Campo "Espacio disponible (%)" cuando `bodega=DISPONIBLE` | líneas 980-983 | No existe |
-| 3.4 | Campo "Novedades u observaciones" (textarea libre) | líneas 1029-1030 | No existe en el formulario (sí cabría en `datos.nov`, pero no hay UI) |
-| 3.5 | Campo "Enlace del archivo" para adjuntos de más de 15 MB | líneas 1025-1028 | No existe |
-| 3.6 | Historial como grilla compacta de chips S1..S20 con tooltip (estado/fecha/quién) y ratio "hechos/posibles cumplidas" | `historialHTML()`, líneas 1221-1234 | Hoy es una lista vertical simple, sin tooltip ni ratio |
+| 3.1 | Selector de semanas atrasadas (chips S18, S19… clicables para ponerse a corregir semanas viejas, no solo la vigente) | líneas 890-899 | ✅ Hecho (Fase B) |
+| 3.2 | Campo "Motivo de la ausencia" (select `AUSENCIAS`) cuando `estado=AUSENCIA` | líneas 989-995 | ✅ Hecho (Fase A+B) |
+| 3.3 | Campo "Espacio disponible (%)" cuando `bodega=DISPONIBLE` | líneas 980-983 | ✅ Hecho (Fase A+B) |
+| 3.4 | Campo "Novedades u observaciones" (textarea libre) | líneas 1029-1030 | ✅ Hecho (Fase A+B) |
+| 3.5 | Campo "Enlace del archivo" para adjuntos de más de 15 MB | líneas 1025-1028 | ✅ Hecho (Fase A+B) |
+| 3.6 | Historial como grilla compacta de chips S1..S20 con tooltip (estado/fecha/quién) y ratio "hechos/posibles cumplidas" | `historialHTML()`, líneas 1221-1234 | ✅ Hecho (Fase B) |
 | 3.7 | Confirmación de solo-lectura tras guardar, con botón "Corregir registro" para reabrir el formulario | líneas 931-953 | **Decidido: no se implementa.** Se mantiene el formulario siempre editable — más simple de usar y mantener, sin perder funcionalidad. |
 | 3.8 | Adjuntos múltiples fuerzan cámara en vivo (`capture="environment"`), no permiten elegir de galería — es una regla de negocio (evidencia fresca, no reciclada) | línea 1004-1008 | **Decidido: sí se implementa.** `Adjuntos.tsx` debe agregar `capture="environment"` al input de adjuntos múltiples y quitar la posibilidad de elegir archivo existente. |
 | 3.9 | Compresión de fotos en el cliente antes de subir (máx. 2000px, JPEG calidad .85) | `prepararEvidencia()`, líneas 1141-1163 | **Decidido: no se implementa.** El backend nuevo ya no depende de base64/Apps Script; el límite de 15 MB se valida server-side tal cual. |
@@ -180,14 +180,14 @@ No todo pesa igual. Orden sugerido:
 
 ## 6. Plan de ejecución
 
-- [ ] **Fase A — Validación de negocio (backend)**
+- [x] **Fase A — Validación de negocio (backend)**
   - `app/services/registros.py` nuevo: `validar_datos(actividad, estado, datos) -> datos_limpios`,
     con las 5 reglas de la sección 1. Se llama desde `POST /registros/{tienda_id}/{actividad}/{semana}`.
   - Agregar `AUSENCIAS` a `app/services/actividades.py` y exponerlo en `GET /api/v1/actividades`.
   - Tests: cierre fuera de rango falla, conteo faltante en REGISTRADO falla, motivo faltante en
     AUSENCIA falla, bodegaPct se ignora si bodega≠DISPONIBLE, link se acepta y se guarda.
 
-- [ ] **Fase B — Operario: formulario completo**
+- [x] **Fase B — Operario: formulario completo**
   - Agregar motivo (select), bodegaPct (input condicional), novedades (textarea), link
     (input) a `FormularioSemana` en `Operario.tsx`.
   - Selector de semanas atrasadas: usar el array completo de `semanas-abiertas`, no solo `[0]`.
