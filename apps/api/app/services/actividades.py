@@ -26,6 +26,8 @@ class DefinicionActividad:
     adjuntos: tuple[Adjunto, ...]
 
 
+AUSENCIAS = ["Vacaciones", "Incapacidad", "Licencia", "Cambio de contrato", "Cargo vacante", "Otro"]
+
 ACTS: dict[Actividad, DefinicionActividad] = {
     Actividad.inventario: DefinicionActividad(
         nombre="Inventario cíclico",

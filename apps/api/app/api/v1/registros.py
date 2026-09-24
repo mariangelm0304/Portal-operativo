@@ -10,6 +10,7 @@ from app.models.traza import Traza
 from app.schemas.registro import RegistroIn, RegistroOut
 from app.services.actividades import ACTS
 from app.services.calendario import semana_vigente
+from app.services.registros import DatosInvalidos, validar_datos
 
 router = APIRouter()
 
@@ -84,6 +85,11 @@ def guardar_registro(
     if tienda is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Tienda no encontrada")
 
+    try:
+        datos_limpios = validar_datos(actividad, datos.estado, datos.datos)
+    except DatosInvalidos as e:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(e)) from None
+
     registro = (
         db.query(Registro)
         .filter(Registro.actividad == actividad, Registro.tienda_id == tienda_id, Registro.semana == semana)
@@ -100,7 +106,7 @@ def guardar_registro(
         db.add(registro)
 
     registro.estado = datos.estado
-    registro.datos = datos.datos
+    registro.datos = datos_limpios
     registro.reportado_por = claims.nombre
     registro.reportado_rol = claims.rol.value
     db.flush()

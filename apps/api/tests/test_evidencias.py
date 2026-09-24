@@ -1,7 +1,7 @@
 def _crear_registro(client, tienda_id, token):
     r = client.post(
         f"/api/v1/registros/{tienda_id}/inventario/1",
-        json={"estado": "REPORTADO", "datos": {}},
+        json={"estado": "REPORTADO", "datos": {"cierre": 100}},
         headers={"Authorization": f"Bearer {token}"},
     )
     return r.json()["id"]

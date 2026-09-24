@@ -64,7 +64,7 @@ def test_guardar_registro_deja_traza(client, tienda_principal):
     token = _token_coordinador(client)
     client.post(
         f"/api/v1/registros/{tienda_principal.id}/inventario/1",
-        json={"estado": "REPORTADO", "datos": {}},
+        json={"estado": "REPORTADO", "datos": {"cierre": 100}},
         headers={"Authorization": f"Bearer {token}"},
     )
     admin_token = client.post("/api/v1/auth/login-admin", json={"pin": "JAMAR2026"}).json()["access_token"]
@@ -97,7 +97,7 @@ def test_semanas_abiertas_excluye_una_semana_anterior_ya_reportada(client, tiend
     semana_anterior = hoy - 1
     client.post(
         f"/api/v1/registros/{tienda_principal.id}/inventario/{semana_anterior}",
-        json={"estado": "REPORTADO", "datos": {}},
+        json={"estado": "REPORTADO", "datos": {"cierre": 100}},
         headers={"Authorization": f"Bearer {token_coordinador}"},
     )
     r = client.get(
@@ -108,3 +108,29 @@ def test_semanas_abiertas_excluye_una_semana_anterior_ya_reportada(client, tiend
     abiertas = r.json()
     assert hoy in abiertas  # la semana vigente siempre queda disponible para corregir
     assert semana_anterior not in abiertas  # ya tiene un registro REPORTADO, no cuenta como abierta
+
+
+def test_guardar_rechaza_datos_invalidos(client, tienda_principal, token_coordinador):
+    r = client.post(
+        f"/api/v1/registros/{tienda_principal.id}/inventario/1",
+        json={"estado": "REPORTADO", "datos": {}},  # falta cierre, obligatorio en REPORTADO
+        headers={"Authorization": f"Bearer {token_coordinador}"},
+    )
+    assert r.status_code == 422
+
+    r2 = client.post(
+        f"/api/v1/registros/{tienda_principal.id}/inventario/1",
+        json={"estado": "AUSENCIA", "datos": {}},  # falta motivo
+        headers={"Authorization": f"Bearer {token_coordinador}"},
+    )
+    assert r2.status_code == 422
+
+
+def test_guardar_ausencia_valida_combina_motivo_y_novedad(client, tienda_principal, token_coordinador):
+    r = client.post(
+        f"/api/v1/registros/{tienda_principal.id}/inventario/1",
+        json={"estado": "AUSENCIA", "datos": {"motivo": "Vacaciones", "nov": "vuelve el lunes"}},
+        headers={"Authorization": f"Bearer {token_coordinador}"},
+    )
+    assert r.status_code == 200
+    assert r.json()["datos"]["nov"] == "Vacaciones · vuelve el lunes"
