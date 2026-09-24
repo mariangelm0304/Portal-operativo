@@ -12,6 +12,10 @@ diseño originales — no se edita ni se sirve). Se migró a monorepo por seguri
 autenticaba con PIN comparado en el cliente y usaba un Google Apps Script público como único
 backend.
 
+Migración en curso: [PARIDAD-LEGACY.md](PARIDAD-LEGACY.md) tiene la comparación completa contra
+`legacy/index-original.html` (qué falta y en qué orden se cierra). Actualízalo cuando una fase de
+ahí quede resuelta — no lo dejes desactualizado mientras se avanza.
+
 ## Estructura del monorepo
 
 ```
