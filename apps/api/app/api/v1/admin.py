@@ -15,10 +15,16 @@ from app.schemas.admin import (
     CambiarPinTiendaIn,
     ResumenKPI,
 )
+from app.services.alertas import ALERTAS_MIGRACION
 from app.services.calendario import semana_vigente
 from app.services.cumplimiento import EST
 
 router = APIRouter()
+
+
+@router.get("/alertas")
+def alertas(claims: Claims = Depends(requiere_admin)) -> list[str]:
+    return ALERTAS_MIGRACION
 
 
 def _config(db: Session) -> AdminConfig:

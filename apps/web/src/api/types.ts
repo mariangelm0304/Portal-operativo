@@ -83,6 +83,10 @@ export interface SemanaInfo {
   festivos: Festivo[];
 }
 
+export interface AdminConfig {
+  retencion_semanas: number;
+}
+
 export interface SesionToken {
   access_token: string;
   token_type: string;
