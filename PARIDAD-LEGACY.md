@@ -72,9 +72,9 @@ Archivo: `apps/web/src/pages/Operario/Operario.tsx` (+ `Adjuntos.tsx`).
 | 3.4 | Campo "Novedades u observaciones" (textarea libre) | líneas 1029-1030 | No existe en el formulario (sí cabría en `datos.nov`, pero no hay UI) |
 | 3.5 | Campo "Enlace del archivo" para adjuntos de más de 15 MB | líneas 1025-1028 | No existe |
 | 3.6 | Historial como grilla compacta de chips S1..S20 con tooltip (estado/fecha/quién) y ratio "hechos/posibles cumplidas" | `historialHTML()`, líneas 1221-1234 | Hoy es una lista vertical simple, sin tooltip ni ratio |
-| 3.7 | Confirmación de solo-lectura tras guardar, con botón "Corregir registro" para reabrir el formulario | líneas 931-953 | Hoy el formulario queda siempre editable — es una simplificación deliberada, pero vale la pena igualarla para que no se sienta distinto al original |
-| 3.8 | Adjuntos múltiples fuerzan cámara en vivo (`capture="environment"`), no permiten elegir de galería — es una regla de negocio (evidencia fresca, no reciclada) | línea 1004-1008 | `Adjuntos.tsx` hoy usa `<input type="file" multiple>` sin `capture`, permite elegir cualquier foto ya guardada |
-| 3.9 | Compresión de fotos en el cliente antes de subir (máx. 2000px, JPEG calidad .85) | `prepararEvidencia()`, líneas 1141-1163 | No se hace — es menos crítico ahora porque el backend ya no depende de base64/Apps Script, pero fotos de cámara sin comprimir pueden ser pesadas en datos móviles; evaluar si se mantiene |
+| 3.7 | Confirmación de solo-lectura tras guardar, con botón "Corregir registro" para reabrir el formulario | líneas 931-953 | **Decidido: no se implementa.** Se mantiene el formulario siempre editable — más simple de usar y mantener, sin perder funcionalidad. |
+| 3.8 | Adjuntos múltiples fuerzan cámara en vivo (`capture="environment"`), no permiten elegir de galería — es una regla de negocio (evidencia fresca, no reciclada) | línea 1004-1008 | **Decidido: sí se implementa.** `Adjuntos.tsx` debe agregar `capture="environment"` al input de adjuntos múltiples y quitar la posibilidad de elegir archivo existente. |
+| 3.9 | Compresión de fotos en el cliente antes de subir (máx. 2000px, JPEG calidad .85) | `prepararEvidencia()`, líneas 1141-1163 | **Decidido: no se implementa.** El backend nuevo ya no depende de base64/Apps Script; el límite de 15 MB se valida server-side tal cual. |
 | 3.10 | Enter en el campo PIN dispara "Entrar"; Enter en nombre pasa el foco al PIN | líneas 1881-1882 (Ingreso, no Operario, pero mismo patrón de UX) | No implementado — detalle menor de UX |
 
 ## 4. Frontend — Admin
@@ -195,8 +195,8 @@ No todo pesa igual. Orden sugerido:
     puede reusar `EST`/cumplimiento ya portado en el backend vía un endpoint liviano o
     replicando la tabla `EST` también del lado del cliente (ya existe algo parecido en
     `estadosPorActividad.ts`).
-  - Opcional (evaluar con el usuario): flujo de confirmación + "Corregir registro"; `capture`
-    forzado en adjuntos múltiples.
+  - `capture="environment"` forzado en adjuntos múltiples (decidido, ver 3.8). El flujo de
+    confirmación + "Corregir registro" no se implementa (decidido, ver 3.7).
 
 - [ ] **Fase C — Admin: Maestro editable + Exportar + Configuración**
   - PIN editable por tienda + botón guardar (llama a `POST /api/v1/admin/pin-tienda`).
@@ -218,8 +218,8 @@ No todo pesa igual. Orden sugerido:
   - KPIs, evidencia por fila, ranking "quién más reporta", card explicativa.
 
 - [ ] **Fase G — Pulido de UX**
-  - Enter para navegar el formulario de Ingreso, compresión de imágenes (si se decide
-    mantenerla), demás detalles de la sección 3 que queden.
+  - Enter para navegar el formulario de Ingreso, demás detalles de la sección 3 que queden.
+    (La compresión de imágenes queda descartada, ver 3.9.)
 
 ## Verificación
 
