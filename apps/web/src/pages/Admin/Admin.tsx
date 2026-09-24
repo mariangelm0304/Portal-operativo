@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { apiFetch, ApiError } from "../../api/client";
 import { descargarArchivo } from "../../api/descargar";
-import type { AdminConfig, Tienda } from "../../api/types";
+import type { AdminConfig, Evidencia, Tienda } from "../../api/types";
 import { useAuth } from "../../context/AuthContext";
 
 interface ResumenKPI {
@@ -25,8 +25,15 @@ interface Traza {
   en: string;
 }
 
+interface ResumenEvidencias {
+  total: number;
+  bytes_totales: number;
+  ultima_actualizacion: string | null;
+}
+
 const TABS = [
   { id: "resumen", etiqueta: "Resumen" },
+  { id: "archivos", etiqueta: "Archivos" },
   { id: "trazas", etiqueta: "Trazabilidad" },
   { id: "maestro", etiqueta: "Maestro y datos" },
 ] as const;
@@ -46,6 +53,7 @@ export function Admin() {
         ))}
       </div>
       {tab === "resumen" && <TabResumen token={sesion.token} />}
+      {tab === "archivos" && <TabArchivos token={sesion.token} />}
       {tab === "trazas" && <TabTrazas token={sesion.token} />}
       {tab === "maestro" && <TabMaestro token={sesion.token} />}
     </div>
@@ -69,6 +77,160 @@ function TabResumen({ token }: { token: string }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function formatoBytes(n: number): string {
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function TabArchivos({ token }: { token: string }) {
+  const queryClient = useQueryClient();
+  const [fActividad, setFActividad] = useState("todas");
+  const [fZona, setFZona] = useState("todas");
+  const [purgando, setPurgando] = useState(false);
+  const [mensaje, setMensaje] = useState<string | null>(null);
+
+  const { data: resumen } = useQuery({
+    queryKey: ["admin-evidencias-resumen"],
+    queryFn: () => apiFetch<ResumenEvidencias>("/api/v1/admin/evidencias/resumen", { token }),
+  });
+  const { data: tiendas } = useQuery({
+    queryKey: ["tiendas-admin"],
+    queryFn: () => apiFetch<Tienda[]>("/api/v1/tiendas", { token }),
+  });
+  const { data: evidencias, refetch } = useQuery({
+    queryKey: ["admin-evidencias"],
+    queryFn: () => apiFetch<Evidencia[]>("/api/v1/evidencias", { token }),
+  });
+
+  const zonas = useMemo(() => [...new Set((tiendas ?? []).map((t) => t.zona))], [tiendas]);
+  const lista = (evidencias ?? []).filter(
+    (e) => (fActividad === "todas" || e.actividad === fActividad) && (fZona === "todas" || e.zona === fZona),
+  );
+
+  async function purgar() {
+    if (!confirm("¿Borrar del almacenamiento los archivos de semanas anteriores al período de retención? Los registros de cumplimiento no se tocan.")) return;
+    setPurgando(true);
+    setMensaje(null);
+    try {
+      const r = await apiFetch<{ borradas: number }>("/api/v1/admin/evidencias/purgar", { method: "POST", token });
+      setMensaje(`${r.borradas} archivos liberados.`);
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ["admin-evidencias-resumen"] });
+    } catch {
+      setMensaje("No se pudo purgar.");
+    } finally {
+      setPurgando(false);
+    }
+  }
+
+  async function bajar(evidencia: Evidencia) {
+    await descargarArchivo(`/api/v1/evidencias/${evidencia.id}/archivo`, token, evidencia.nombre_original);
+  }
+
+  return (
+    <>
+      <div className="kpis">
+        {kpi("marca", "Archivos guardados", resumen?.total ?? "—")}
+        {kpi("ok", "Peso subido", resumen ? formatoBytes(resumen.bytes_totales) : "—")}
+        {kpi("ausen", "Última actualización", resumen?.ultima_actualizacion ? new Date(resumen.ultima_actualizacion).toLocaleString("es-CO") : "—")}
+      </div>
+      <div className="tj">
+        <div className="tj-h">
+          <h3>Archivos subidos</h3>
+          <div className="campo" style={{ minWidth: 170 }}>
+            <label htmlFor="fa-act">Actividad</label>
+            <select id="fa-act" value={fActividad} onChange={(e) => setFActividad(e.target.value)}>
+              <option value="todas">Todas</option>
+              <option value="inventario">Inventario cíclico</option>
+              <option value="calidad">Bitácora de calidad</option>
+              <option value="pistoleo">Pistoleo</option>
+            </select>
+          </div>
+          <div className="campo" style={{ minWidth: 130 }}>
+            <label htmlFor="fa-zona">Zona</label>
+            <select id="fa-zona" value={fZona} onChange={(e) => setFZona(e.target.value)}>
+              <option value="todas">Todas</option>
+              {zonas.map((z) => (
+                <option key={z} value={z}>
+                  {z}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button className="btn btn-sm" style={{ marginLeft: "auto" }} onClick={() => refetch()}>
+            Actualizar
+          </button>
+          <button className="btn btn-sm" onClick={purgar} disabled={purgando}>
+            Purgar antiguos
+          </button>
+        </div>
+        {mensaje && (
+          <div className="tj-b" style={{ paddingBottom: 0 }}>
+            <div className="aviso">{mensaje}</div>
+          </div>
+        )}
+        {!lista.length ? (
+          <div className="vacio">{evidencias?.length ? "Ningún archivo con ese filtro." : "Todavía nadie ha subido archivos."}</div>
+        ) : (
+          <div className="tabla-env">
+            <table className="dat">
+              <thead>
+                <tr>
+                  <th>Archivo</th>
+                  <th>Tienda</th>
+                  <th>Actividad</th>
+                  <th>Sem.</th>
+                  <th className="n">Peso</th>
+                  <th>Subió</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {lista.map((e) => (
+                  <tr key={e.id}>
+                    <td>
+                      <b>{e.nombre_original}</b>
+                      <br />
+                      <span className="pill">{e.etiqueta}</span>
+                    </td>
+                    <td>
+                      {e.tienda_nombre}
+                      <br />
+                      <span style={{ fontSize: 10.5, color: "var(--tenue)" }}>{e.zona}</span>
+                    </td>
+                    <td>{e.actividad}</td>
+                    <td className="mono">S{e.semana}</td>
+                    <td className="n">{formatoBytes(e.tamano_bytes)}</td>
+                    <td>
+                      {e.subido_por}
+                      <br />
+                      <span style={{ fontSize: 10.5, color: "var(--tenue)" }}>{new Date(e.subido_en).toLocaleString("es-CO")}</span>
+                    </td>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      <button className="btn btn-sm" onClick={() => bajar(e)}>
+                        Descargar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function kpi(clase: string, etiqueta: string, valor: string | number) {
+  return (
+    <div className={`kpi a-${clase}`}>
+      <div className="k-l">{etiqueta}</div>
+      <div className="k-v">{valor}</div>
     </div>
   );
 }

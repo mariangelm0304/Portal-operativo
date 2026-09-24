@@ -3,7 +3,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
 from fastapi.responses import Response
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import Claims, obtener_claims, verificar_tienda
 from app.core.config import get_settings
@@ -11,6 +11,7 @@ from app.db.session import get_db
 from app.models.enums import Rol
 from app.models.evidencia import Evidencia
 from app.models.registro import Registro
+from app.models.tienda import Tienda
 from app.schemas.evidencia import EvidenciaOut
 from app.services.actividades import NOMBRE_RANURA, ranura_valida
 from app.services.sync_google import sincronizar_evidencia
@@ -69,13 +70,21 @@ def listar_evidencias(
     tienda_id: int | None = None,
     actividad: str | None = None,
     semana: int | None = None,
+    zona: str | None = None,
     claims: Claims = Depends(obtener_claims),
     db: Session = Depends(get_db),
 ) -> list[Evidencia]:
-    q = db.query(Evidencia).join(Registro)
+    q = (
+        db.query(Evidencia)
+        .join(Registro)
+        .join(Tienda, Registro.tienda_id == Tienda.id)
+        .options(joinedload(Evidencia.registro).joinedload(Registro.tienda))
+    )
     if claims.rol == Rol.admin:
         if tienda_id:
             q = q.filter(Registro.tienda_id == tienda_id)
+        if zona:
+            q = q.filter(Tienda.zona == zona)
     else:
         q = q.filter(Registro.tienda_id == claims.tienda_id)
     if actividad:

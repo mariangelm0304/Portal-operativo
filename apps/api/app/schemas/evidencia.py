@@ -16,5 +16,11 @@ class EvidenciaOut(BaseModel):
     subido_por: str
     subido_en: datetime
     sync_estado: SyncEstado
+    # Desnormalizado a propósito para el tab Admin → Archivos: evita que el frontend tenga
+    # que cruzar evidencias con registros y tiendas solo para pintar una tabla.
+    tienda_nombre: str
+    zona: str
+    actividad: str
+    semana: int
 
     model_config = {"from_attributes": True}

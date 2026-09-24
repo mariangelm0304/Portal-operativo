@@ -68,6 +68,10 @@ export interface Evidencia {
   subido_por: string;
   subido_en: string;
   sync_estado: "pendiente" | "ok" | "error";
+  tienda_nombre: string;
+  zona: string;
+  actividad: string;
+  semana: number;
 }
 
 export interface Festivo {

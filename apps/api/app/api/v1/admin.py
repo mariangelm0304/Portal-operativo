@@ -16,8 +16,10 @@ from app.schemas.admin import (
     ResumenKPI,
 )
 from app.services.alertas import ALERTAS_MIGRACION
+from app.services.archivos import purgar_evidencias_antiguas, resumen_evidencias
 from app.services.calendario import semana_vigente
 from app.services.cumplimiento import EST
+from app.storage import get_storage
 
 router = APIRouter()
 
@@ -25,6 +27,19 @@ router = APIRouter()
 @router.get("/alertas")
 def alertas(claims: Claims = Depends(requiere_admin)) -> list[str]:
     return ALERTAS_MIGRACION
+
+
+@router.get("/evidencias/resumen")
+def evidencias_resumen(claims: Claims = Depends(requiere_admin), db: Session = Depends(get_db)) -> dict:
+    return resumen_evidencias(db)
+
+
+@router.post("/evidencias/purgar")
+def evidencias_purgar(claims: Claims = Depends(requiere_admin), db: Session = Depends(get_db)) -> dict:
+    config = _config(db)
+    semana_limite = semana_vigente() - config.retencion_semanas
+    borradas = purgar_evidencias_antiguas(db, get_storage(), semana_limite)
+    return {"borradas": borradas, "semana_limite": semana_limite}
 
 
 def _config(db: Session) -> AdminConfig:

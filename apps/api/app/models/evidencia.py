@@ -37,3 +37,21 @@ class Evidencia(Base):
     sync_error: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     registro: Mapped["Registro"] = relationship(back_populates="evidencias")
+
+    # Desnormalizado a propósito en EvidenciaOut (ver app/schemas/evidencia.py) para que el
+    # tab Admin → Archivos no tenga que cruzar tablas en el cliente.
+    @property
+    def tienda_nombre(self) -> str:
+        return self.registro.tienda.nombre
+
+    @property
+    def zona(self) -> str:
+        return self.registro.tienda.zona
+
+    @property
+    def actividad(self) -> str:
+        return self.registro.actividad
+
+    @property
+    def semana(self) -> int:
+        return self.registro.semana

@@ -53,6 +53,67 @@ def test_cambiar_pin_admin_requiere_el_actual(client, tienda_principal, token_ad
     assert login_nuevo.status_code == 200
 
 
+def test_evidencias_resumen(client, tienda_principal, token_coordinador, token_admin):
+    registro = client.post(
+        f"/api/v1/registros/{tienda_principal.id}/inventario/1",
+        json={"estado": "REPORTADO", "datos": {"cierre": 100}},
+        headers={"Authorization": f"Bearer {token_coordinador}"},
+    ).json()
+    client.post(
+        f"/api/v1/evidencias/{registro['id']}/conteo",
+        headers={"Authorization": f"Bearer {token_coordinador}"},
+        files={"archivo": ("conteo.xlsx", b"doce-bytes!!", "application/octet-stream")},
+    )
+
+    r = client.get("/api/v1/admin/evidencias/resumen", headers={"Authorization": f"Bearer {token_admin}"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total"] == 1
+    assert body["bytes_totales"] == 12
+    assert body["ultima_actualizacion"] is not None
+
+
+def test_purgar_evidencias_antiguas(client, tienda_principal, token_coordinador, token_admin):
+    from app.services.calendario import semana_vigente
+
+    hoy = semana_vigente()
+    if hoy < 5:
+        return  # necesitamos una semana bien vieja para probar la purga con retención=3
+
+    semana_vieja = 1
+    semana_reciente = hoy
+
+    reg_viejo = client.post(
+        f"/api/v1/registros/{tienda_principal.id}/inventario/{semana_vieja}",
+        json={"estado": "REPORTADO", "datos": {"cierre": 100}},
+        headers={"Authorization": f"Bearer {token_coordinador}"},
+    ).json()
+    reg_reciente = client.post(
+        f"/api/v1/registros/{tienda_principal.id}/inventario/{semana_reciente}",
+        json={"estado": "REPORTADO", "datos": {"cierre": 100}},
+        headers={"Authorization": f"Bearer {token_coordinador}"},
+    ).json()
+    ev_vieja = client.post(
+        f"/api/v1/evidencias/{reg_viejo['id']}/conteo",
+        headers={"Authorization": f"Bearer {token_coordinador}"},
+        files={"archivo": ("viejo.xlsx", b"x", "application/octet-stream")},
+    ).json()
+    ev_reciente = client.post(
+        f"/api/v1/evidencias/{reg_reciente['id']}/conteo",
+        headers={"Authorization": f"Bearer {token_coordinador}"},
+        files={"archivo": ("reciente.xlsx", b"x", "application/octet-stream")},
+    ).json()
+
+    r = client.post("/api/v1/admin/evidencias/purgar", headers={"Authorization": f"Bearer {token_admin}"})
+    assert r.status_code == 200
+    assert r.json()["borradas"] == 1
+
+    listado = client.get("/api/v1/evidencias", headers={"Authorization": f"Bearer {token_coordinador}"}).json()
+    ids = {e["id"] for e in listado}
+    assert ev_vieja["id"] not in ids
+    assert ev_reciente["id"] in ids
+
+
 def test_actualizar_config_retencion(client, tienda_principal, token_admin):
     r = client.put(
         "/api/v1/admin/config", json={"retencion_semanas": 6}, headers={"Authorization": f"Bearer {token_admin}"}
