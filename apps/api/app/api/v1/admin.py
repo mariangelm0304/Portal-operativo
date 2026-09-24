@@ -17,11 +17,71 @@ from app.schemas.admin import (
 )
 from app.services.alertas import ALERTAS_MIGRACION
 from app.services.archivos import purgar_evidencias_antiguas, resumen_evidencias
-from app.services.calendario import semana_vigente
+from app.services.calendario import semana_vigente, semanas_filtradas
 from app.services.cumplimiento import EST
+from app.services.resumen import listar_periodos, matriz_actividad, novedades, resumen_global, tiendas_filtradas
 from app.storage import get_storage
 
 router = APIRouter()
+
+
+def _sem_max(db: Session) -> int:
+    ultimo_registro = db.query(Registro).order_by(Registro.semana.desc()).first()
+    return max(semana_vigente(), ultimo_registro.semana if ultimo_registro else 1)
+
+
+@router.get("/periodos")
+def periodos(claims: Claims = Depends(requiere_admin), db: Session = Depends(get_db)) -> list[dict]:
+    return listar_periodos(_sem_max(db))
+
+
+@router.get("/resumen/global")
+def resumen_global_endpoint(
+    periodo: str | None = None,
+    semana: int | None = None,
+    zona: str | None = None,
+    claims: Claims = Depends(requiere_admin),
+    db: Session = Depends(get_db),
+) -> dict:
+    sem_max = _sem_max(db)
+    semanas = semanas_filtradas(periodo, semana, sem_max)
+    todas_del_periodo = semanas_filtradas(periodo, None, sem_max)
+    tiendas = tiendas_filtradas(db, zona)
+    return resumen_global(db, semanas, todas_del_periodo, tiendas)
+
+
+@router.get("/matriz/{actividad}")
+def matriz_endpoint(
+    actividad: str,
+    periodo: str | None = None,
+    semana: int | None = None,
+    zona: str | None = None,
+    claims: Claims = Depends(requiere_admin),
+    db: Session = Depends(get_db),
+) -> dict:
+    if actividad not in (a.value for a in Actividad):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Actividad desconocida")
+    sem_max = _sem_max(db)
+    semanas = semanas_filtradas(periodo, semana, sem_max)
+    todas_del_periodo = semanas_filtradas(periodo, None, sem_max)
+    tiendas = tiendas_filtradas(db, zona)
+    return matriz_actividad(db, Actividad(actividad), semanas, todas_del_periodo, tiendas)
+
+
+@router.get("/novedades")
+def novedades_endpoint(
+    actividad: str | None = None,
+    periodo: str | None = None,
+    semana: int | None = None,
+    zona: str | None = None,
+    claims: Claims = Depends(requiere_admin),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    sem_max = _sem_max(db)
+    semanas = semanas_filtradas(periodo, semana, sem_max)
+    tiendas = tiendas_filtradas(db, zona)
+    act = Actividad(actividad) if actividad else None
+    return novedades(db, act, semanas, tiendas)
 
 
 @router.get("/alertas")

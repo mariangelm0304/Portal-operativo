@@ -87,3 +87,31 @@ def semana_de_fecha(iso: str) -> int | None:
 def semana_vigente(hoy: date | None = None) -> int:
     hoy = hoy or date.today()
     return semana_de_fecha(hoy.isoformat()) or 1
+
+
+@dataclass
+class Periodo:
+    nombre: str
+    semanas: list[int]
+
+
+def periodos_hasta(sem_max: int) -> list[Periodo]:
+    """Agrupa las semanas 1..sem_max por mes, en el orden en que aparecen — puerto de
+    PERIODOS en legacy/index-original.html, líneas 628-636. `nombre` sirve como filtro
+    (?periodo=Septiembre 2026) en vez del id sintético del original."""
+    por_mes: dict[str, list[int]] = {}
+    for s in range(1, sem_max + 1):
+        mes = semana_info(s).mes
+        por_mes.setdefault(mes, []).append(s)
+    return [Periodo(nombre=mes, semanas=semanas) for mes, semanas in por_mes.items()]
+
+
+def semanas_filtradas(periodo: str | None, semana: int | None, sem_max: int) -> list[int]:
+    if semana:
+        return [semana]
+    if periodo and periodo != "todas":
+        for p in periodos_hasta(sem_max):
+            if p.nombre == periodo:
+                return p.semanas
+        return []
+    return list(range(1, sem_max + 1))
