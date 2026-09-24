@@ -1,21 +1,36 @@
-// Estados que puede elegir cada rol para su actividad — puerto de los botones segmentados
-// del original (seg button, legacy/index-original.html). AUSENCIA/PENDIENTE se ofrecen en
-// las 3 porque cualquier operario puede reportar que no pudo hacer la actividad esta semana.
+// Estados que puede elegir cada rol para su actividad — puerto exacto de las opciones
+// segmentadas del original (legacy/index-original.html, líneas 925-929): mismo texto de
+// botón, no el nombre técnico del estado.
 export const ESTADOS_POR_ACTIVIDAD: Record<string, { valor: string; etiqueta: string }[]> = {
   inventario: [
-    { valor: "REPORTADO", etiqueta: "Reportado" },
-    { valor: "SIN_REPORTE", etiqueta: "Sin reporte" },
-    { valor: "AUSENCIA", etiqueta: "Ausencia justificada" },
+    { valor: "REPORTADO", etiqueta: "Conteo hecho" },
+    { valor: "SIN_REPORTE", etiqueta: "No alcancé" },
+    { valor: "AUSENCIA", etiqueta: "No estuve" },
   ],
   calidad: [
-    { valor: "ENVIADA", etiqueta: "Enviada" },
-    { valor: "NO_ENVIADA", etiqueta: "No enviada" },
-    { valor: "AUSENCIA", etiqueta: "Ausencia justificada" },
+    { valor: "ENVIADA", etiqueta: "Bitácora lista" },
+    { valor: "NO_ENVIADA", etiqueta: "No la hice" },
+    { valor: "AUSENCIA", etiqueta: "No estuve" },
   ],
   pistoleo: [
-    { valor: "REGISTRADO", etiqueta: "Registrado" },
-    { valor: "AUSENCIA", etiqueta: "Ausencia justificada" },
+    { valor: "REGISTRADO", etiqueta: "Pistoleo hecho" },
+    { valor: "NO_REALIZADO", etiqueta: "No se hizo" },
+    { valor: "AUSENCIA", etiqueta: "No estuve" },
   ],
+};
+
+// ROLES y ACTS.verbo del original — el nombre "de tarea" (más informal) que se usa en el
+// encabezado de la tarjeta de Operario, distinto del nombre "de tab" que usa Admin.
+export const ROLES: Record<string, string> = {
+  coordinador: "Coordinador de tienda",
+  tecnico: "Técnico de calidad",
+  auxiliar: "Auxiliar de piso",
+};
+
+export const VERBO_POR_ACTIVIDAD: Record<string, string> = {
+  inventario: "Conteo cíclico",
+  calidad: "Bitácora de calidad",
+  pistoleo: "Pistoleo de piso",
 };
 
 export const BODEGA_OPCIONES = [

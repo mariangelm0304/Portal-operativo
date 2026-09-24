@@ -107,7 +107,15 @@ export function Ingreso() {
           body: { slug: tienda.slug, pin, rol: rolNuevo, nombre: nombreNuevo.trim() },
         });
       }
-      iniciarSesion({ token: token.access_token, rol: token.rol, nombre: token.nombre, tiendaId: tienda.id, tiendaSlug: tienda.slug });
+      iniciarSesion({
+        token: token.access_token,
+        rol: token.rol,
+        nombre: token.nombre,
+        tiendaId: tienda.id,
+        tiendaSlug: tienda.slug,
+        tiendaNombre: tienda.nombre,
+        tiendaAg: tienda.ag,
+      });
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "No se pudo conectar con el servidor.");
     } finally {
@@ -119,7 +127,15 @@ export function Ingreso() {
     setErrorAdmin(null);
     try {
       const token = await apiFetch<SesionToken>("/api/v1/auth/login-admin", { method: "POST", body: { pin: pinAdmin } });
-      iniciarSesion({ token: token.access_token, rol: token.rol, nombre: token.nombre, tiendaId: null, tiendaSlug: null });
+      iniciarSesion({
+        token: token.access_token,
+        rol: token.rol,
+        nombre: token.nombre,
+        tiendaId: null,
+        tiendaSlug: null,
+        tiendaNombre: null,
+        tiendaAg: null,
+      });
     } catch (e) {
       setErrorAdmin(e instanceof ApiError ? e.message : "No se pudo conectar con el servidor.");
     }

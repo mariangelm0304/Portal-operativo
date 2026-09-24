@@ -21,7 +21,7 @@ export function Barra() {
           <span className="marca-log">jamar</span>
           <span className="marca-tx">
             <b>Portal Operativo</b>
-            <span>{sesion.rol === "admin" ? "21 tiendas · seguimiento" : sesion.tiendaSlug}</span>
+            <span>{sesion.rol === "admin" ? "21 tiendas · seguimiento" : `${sesion.tiendaNombre} · AG ${sesion.tiendaAg}`}</span>
           </span>
         </div>
         {sesion.rol === "admin" && (

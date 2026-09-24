@@ -4,7 +4,7 @@ import { ApiError, apiFetch } from "../../api/client";
 import type { Adjunto, Actividades, Registro, SemanaInfo } from "../../api/types";
 import { useAuth } from "../../context/AuthContext";
 import { Adjuntos } from "./Adjuntos";
-import { BODEGA_OPCIONES, CUENTA_POR_ESTADO, ESTADOS_POR_ACTIVIDAD, TONO_POR_ESTADO } from "./estadosPorActividad";
+import { BODEGA_OPCIONES, CUENTA_POR_ESTADO, ESTADOS_POR_ACTIVIDAD, ROLES, TONO_POR_ESTADO, VERBO_POR_ACTIVIDAD } from "./estadosPorActividad";
 
 const ACTIVIDAD_POR_ROL: Record<string, "inventario" | "calidad" | "pistoleo"> = {
   coordinador: "inventario",
@@ -21,6 +21,15 @@ function formatoRango(lunes: string, domingo: string): string {
   const [, , dl] = lunes.split("-").map(Number);
   const [, md, dd] = domingo.split("-").map(Number);
   return `${dl} al ${dd} de ${MESES_CORTO[md - 1]}`;
+}
+
+function formatoMes(iso: string): string {
+  const [anio, mes] = iso.split("-").map(Number);
+  const MESES = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+  ];
+  return `${MESES[mes - 1]} ${anio}`;
 }
 
 export function Operario() {
@@ -72,52 +81,66 @@ export function Operario() {
           <div className="avatar">{iniciales(sesion.nombre)}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: "Archivo,sans-serif", fontWeight: 700, fontSize: 15 }}>{sesion.nombre}</div>
-            <div style={{ fontSize: 12, color: "var(--tenue)" }}>{sesion.tiendaSlug}</div>
+            <div style={{ fontSize: 12, color: "var(--tenue)" }}>
+              {ROLES[sesion.rol]} · {sesion.tiendaNombre}
+            </div>
           </div>
           <div style={{ textAlign: "right" }}>
             <div className="eti">Semana</div>
             <div className="mono" style={{ fontSize: 19, fontWeight: 600 }}>
-              {semanaActual ?? "—"}
+              S{semanaActual ?? "—"}
             </div>
             {semanaInfo && <div style={{ fontSize: 11, color: "var(--tenue)" }}>{formatoRango(semanaInfo.lunes, semanaInfo.domingo)}</div>}
           </div>
         </div>
 
-        {semanaInfo && semanaInfo.festivos.length > 0 && (
-          <div className="sem-fest">
-            {semanaInfo.festivos.map((f) => (
-              <span key={f.fecha} className="chip cuad e-ausen">
-                {f.nombre}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {atrasadas.length > 0 && (
+        {semanaInfo && semanaActual != null && (
           <div className="sem-banda">
             <div className="sem-info">
-              <span className="eti">Semanas sin registrar</span>
+              <span className="eti">Semana en curso</span>
+              <b>
+                Semana {semanaActual} · {formatoRango(semanaInfo.lunes, semanaInfo.domingo)}
+              </b>
+              <span>
+                {formatoMes(semanaInfo.lunes)}
+                {semanaActual !== semanaVigente ? " · registro atrasado" : ""}
+              </span>
             </div>
-            <div className="hist">
-              {[semanaVigente, ...atrasadas].map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  className={`hist-s ${s === semanaActual ? "h-act" : ""}`}
-                  onClick={() => setSemanaElegida(s === semanaVigente ? null : s!)}
-                >
-                  S{s}
-                </button>
-              ))}
-            </div>
+            {semanaInfo.festivos.length > 0 && (
+              <div className="sem-fest">
+                {semanaInfo.festivos.map((f) => (
+                  <span key={f.fecha} className="chip cuad e-ausen">
+                    {f.nombre}
+                  </span>
+                ))}
+              </div>
+            )}
+            {atrasadas.length > 0 && (
+              <div className="sem-atras">
+                <span className="eti">Semanas sin registrar</span>
+                <div className="hist">
+                  {[semanaVigente, ...atrasadas].map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className={`hist-s ${s === semanaActual ? "h-act" : ""}`}
+                      onClick={() => setSemanaElegida(s === semanaVigente ? null : s!)}
+                    >
+                      S{s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {semanaActual != null && actividades && (
+        {semanaActual != null && actividades && semanaInfo && (
           <FormularioSemana
             actividad={actividad}
             tiendaId={tiendaId}
             semana={semanaActual}
+            rango={formatoRango(semanaInfo.lunes, semanaInfo.domingo)}
             token={sesion.token}
             registro={registroActual}
             adjuntos={actividades.actividades[actividad].adjuntos}
@@ -192,6 +215,7 @@ function FormularioSemana({
   actividad,
   tiendaId,
   semana,
+  rango,
   token,
   registro,
   adjuntos,
@@ -201,6 +225,7 @@ function FormularioSemana({
   actividad: "inventario" | "calidad" | "pistoleo";
   tiendaId: number;
   semana: number;
+  rango: string;
   token: string;
   registro: Registro | undefined;
   adjuntos: Adjunto[];
@@ -220,9 +245,10 @@ function FormularioSemana({
   const [ok, setOk] = useState(false);
 
   const opciones = ESTADOS_POR_ACTIVIDAD[actividad];
+  const yaEsta = !!registro && registro.estado !== "PENDIENTE" && registro.estado !== "SIN_DATO";
 
   async function guardar() {
-    if (!estado) return setError("Elige un estado.");
+    if (!estado) return setError("Marca primero qué pasó esta semana.");
     setGuardando(true);
     setError(null);
     setOk(false);
@@ -259,11 +285,15 @@ function FormularioSemana({
   return (
     <div className="op-tarea">
       <div className="op-tarea-h">
-        <b>Semana {semana}</b>
+        <span className={`chip cuad ${yaEsta ? "e-ok" : "e-pend"}`}>{yaEsta ? "Registrado" : "Pendiente"}</span>
+        <b>{VERBO_POR_ACTIVIDAD[actividad]}</b>
+        <span style={{ marginLeft: "auto", fontSize: 11.5, color: "var(--tenue)" }}>
+          Semana <b className="mono">{semana}</b> · {rango}
+        </span>
       </div>
       <div className="op-form">
         <div className="campo">
-          <label>Estado</label>
+          <label>¿Qué pasó esta semana?</label>
           <div className="seg">
             {opciones.map((o) => (
               <button key={o.valor} className={estado === o.valor ? "on" : ""} onClick={() => setEstado(o.valor)} type="button">
@@ -321,6 +351,12 @@ function FormularioSemana({
           </div>
         )}
 
+        {registro ? (
+          <Adjuntos registroId={registro.id} adjuntos={adjuntos} token={token} />
+        ) : (
+          <p className="nota-pie">Guarda el estado primero para poder adjuntar archivos.</p>
+        )}
+
         <div className="campo">
           <label htmlFor="link">O el enlace del archivo (Drive, SharePoint)</label>
           <input id="link" type="text" value={link} onChange={(e) => setLink(e.target.value)} placeholder="Opcional, si el archivo pesa más de 15 MB" />
@@ -334,15 +370,10 @@ function FormularioSemana({
         {error && <div className="error">{error}</div>}
         {ok && <div className="exito">Guardado.</div>}
 
-        <button className="btn btn-p" onClick={guardar} disabled={guardando}>
-          Guardar
+        <button className="btn btn-p btn-g" onClick={guardar} disabled={guardando}>
+          {yaEsta ? "Actualizar registro" : "Guardar registro"}
         </button>
-
-        {registro ? (
-          <Adjuntos registroId={registro.id} adjuntos={adjuntos} token={token} />
-        ) : (
-          <p className="nota-pie">Guarda el estado primero para poder adjuntar archivos.</p>
-        )}
+        <p className="nota-pie">Se guarda con tu nombre y la fecha y hora del envío.</p>
       </div>
     </div>
   );

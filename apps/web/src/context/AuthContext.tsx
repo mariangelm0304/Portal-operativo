@@ -7,6 +7,8 @@ export interface Sesion {
   nombre: string;
   tiendaId: number | null;
   tiendaSlug: string | null;
+  tiendaNombre: string | null;
+  tiendaAg: string | null;
 }
 
 interface AuthContextValue {

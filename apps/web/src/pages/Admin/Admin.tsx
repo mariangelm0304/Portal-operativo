@@ -7,6 +7,13 @@ import { GraficoLinea } from "../../components/GraficoLinea";
 import { Matriz } from "../../components/Matriz";
 import { useAuth } from "../../context/AuthContext";
 import { paramsFiltros, useFiltrosAdmin } from "../../context/FiltrosAdminContext";
+import { ROLES, VERBO_POR_ACTIVIDAD } from "../Operario/estadosPorActividad";
+
+const CAMPO_RESPONSABLE: Record<"inventario" | "calidad" | "pistoleo", "coordinador" | "tecnico" | "auxiliar"> = {
+  inventario: "coordinador",
+  calidad: "tecnico",
+  pistoleo: "auxiliar",
+};
 
 function pct1(n: number | null): string {
   if (n == null) return "—";
@@ -284,6 +291,10 @@ function TabActividad({ actividad, token }: { actividad: "inventario" | "calidad
     queryKey: ["admin-novedades", actividad, params],
     queryFn: () => apiFetch<NovedadItem[]>(`/api/v1/admin/novedades${qs({ ...params, actividad })}`, { token }),
   });
+  const { data: tiendas } = useQuery({
+    queryKey: ["tiendas-admin"],
+    queryFn: () => apiFetch<Tienda[]>("/api/v1/tiendas", { token }),
+  });
 
   if (!matriz) return null;
 
@@ -291,10 +302,17 @@ function TabActividad({ actividad, token }: { actividad: "inventario" | "calidad
   const incumple = matriz.tiendas.reduce((a, f) => a + f.celdas.filter((c) => c.tono === "falla").length, 0);
   const ausencias = matriz.tiendas.reduce((a, f) => a + f.celdas.filter((c) => c.tono === "ausen").length, 0);
   const pendientes = matriz.tiendas.reduce((a, f) => a + f.celdas.filter((c) => c.tono === "pend").length, 0);
-  const sinTecnico = matriz.tiendas.filter((f) => actividad === "calidad" && f.celdas.some((c) => c.estado === "SIN_TECNICO")).length;
-  const pctPromedio = matriz.cumplimiento_semanal?.length
-    ? matriz.cumplimiento_semanal.reduce((a, p) => a + (p.pct ?? 0), 0) / matriz.cumplimiento_semanal.length
-    : null;
+  // Puerto exacto de metricas(): pct = cumple/(cumple+incumple) sobre el total de celdas, no
+  // un promedio de porcentajes semanales (eso da un número distinto cuando las semanas no
+  // tienen la misma cantidad de celdas elegibles).
+  const elegibles = cumple + incumple;
+  const pct = elegibles ? (cumple / elegibles) * 100 : null;
+  // "Sin responsable" es del maestro (tienda sin coordinador/técnico/auxiliar asignado), no
+  // un estado de registro — puerto de `TIENDAS.filter(t=>!responsable(t.slug, A.rol))`.
+  const idsEnMatriz = new Set(matriz.tiendas.map((f) => f.id));
+  const sinResponsable = (tiendas ?? []).filter((t) => idsEnMatriz.has(t.id) && !t[CAMPO_RESPONSABLE[actividad]]).length;
+  const primeraSemana = matriz.semanas[0];
+  const ultimaSemana = matriz.semanas[matriz.semanas.length - 1];
 
   return (
     <>
@@ -306,9 +324,12 @@ function TabActividad({ actividad, token }: { actividad: "inventario" | "calidad
             <div className="k-s">{cumple} registros semanales</div>
           </div>
         ) : (
-          <div className={`kpi a-${tonoPct(pctPromedio)}`}>
+          <div className={`kpi a-${tonoPct(pct)}`}>
             <div className="k-l">Cumplimiento</div>
-            <div className="k-v">{pct1(pctPromedio)}</div>
+            <div className="k-v">{pct1(pct)}</div>
+            <div className="k-s">
+              {cumple} de {elegibles} exigibles
+            </div>
           </div>
         )}
         <div className="kpi a-ok">
@@ -330,18 +351,21 @@ function TabActividad({ actividad, token }: { actividad: "inventario" | "calidad
           <div className="k-v">{pendientes}</div>
           <div className="k-s">semanas aún abiertas</div>
         </div>
-        {actividad === "calidad" && (
-          <div className={`kpi a-${sinTecnico ? "falla" : "ok"}`}>
-            <div className="k-l">Sin técnico</div>
-            <div className="k-v">{sinTecnico}</div>
-            <div className="k-s">tiendas sin responsable</div>
-          </div>
-        )}
+        <div className={`kpi a-${sinResponsable ? "falla" : "ok"}`}>
+          <div className="k-l">Sin {ROLES[CAMPO_RESPONSABLE[actividad]].toLowerCase()}</div>
+          <div className="k-v">{sinResponsable}</div>
+          <div className="k-s">tiendas sin responsable</div>
+        </div>
       </div>
       <div className="tj" style={{ marginBottom: 14 }}>
         <div className="tj-h">
-          <h3>Matriz tienda × semana</h3>
-          <span className="nota">{matriz.tiendas.length} tiendas · {matriz.semanas.length} semanas</span>
+          <h3>{VERBO_POR_ACTIVIDAD[actividad]} · matriz tienda × semana</h3>
+          <span className="nota">
+            {matriz.tiendas.length} tiendas ·{" "}
+            {matriz.semanas.length === 1
+              ? `semana ${primeraSemana.n} (${primeraSemana.info.lunes.split("-").reverse().join("/")} al ${primeraSemana.info.domingo.split("-").reverse().join("/")})`
+              : `${matriz.semanas.length} semanas · ${primeraSemana.info.lunes.split("-").reverse().join("/")} a ${ultimaSemana.info.domingo.split("-").reverse().join("/")}`}
+          </span>
         </div>
         <Matriz actividad={actividad} matriz={matriz} />
       </div>
