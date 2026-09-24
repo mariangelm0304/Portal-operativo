@@ -36,7 +36,12 @@ export interface DefinicionActividad {
   adjuntos: Adjunto[];
 }
 
-export type Actividades = Record<"inventario" | "calidad" | "pistoleo", DefinicionActividad>;
+export type MapaActividades = Record<"inventario" | "calidad" | "pistoleo", DefinicionActividad>;
+
+export interface Actividades {
+  ausencias: string[];
+  actividades: MapaActividades;
+}
 
 export interface Registro {
   id: number;

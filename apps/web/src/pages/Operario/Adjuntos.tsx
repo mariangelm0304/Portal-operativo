@@ -150,20 +150,20 @@ function AdjuntoMultiple({
   };
 
   async function alElegir(e: React.ChangeEvent<HTMLInputElement>) {
-    const archivos = Array.from(e.target.files ?? []);
-    if (!archivos.length) return;
+    // Cámara en vivo, una foto a la vez (sin `multiple`): es la misma regla del original
+    // (legacy/index-original.html, líneas 1004-1008) para que la evidencia sea fresca y no
+    // una foto vieja elegida de la galería.
+    const archivo = e.target.files?.[0];
+    if (!archivo) return;
+    const ranura = siguienteRanura();
+    if (!ranura) {
+      setError(`Ya adjuntaste el máximo de ${adjunto.maximo} fotos.`);
+      return;
+    }
     setSubiendo(true);
     setError(null);
     try {
-      for (const archivo of archivos) {
-        const ranura = siguienteRanura();
-        if (!ranura) {
-          setError(`Ya adjuntaste el máximo de ${adjunto.maximo} fotos.`);
-          break;
-        }
-        await onSubir(ranura, archivo);
-        ranurasUsadas.add(ranura);
-      }
+      await onSubir(ranura, archivo);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No se pudo subir el archivo.");
     } finally {
@@ -175,20 +175,22 @@ function AdjuntoMultiple({
   return (
     <div>
       <div className="adj-btns">
-        <label className="btn" style={{ cursor: subiendo ? "not-allowed" : "pointer" }}>
-          {subiendo ? "Subiendo…" : `${adjunto.nombre} (${evidencias.length}/${adjunto.maximo})`}
+        <label className="btn btn-p" style={{ cursor: subiendo ? "not-allowed" : "pointer" }}>
+          {subiendo ? "Subiendo…" : evidencias.length ? "Tomar otra foto" : "Tomar foto"}
           <input
             ref={inputRef}
             type="file"
             accept={adjunto.acepta}
-            multiple
+            capture="environment"
             onChange={alElegir}
             style={{ display: "none" }}
             disabled={subiendo || evidencias.length >= adjunto.maximo}
           />
         </label>
       </div>
-      <span style={{ fontSize: 11.5, color: "var(--tenue)" }}>{adjunto.pista}</span>
+      <span style={{ fontSize: 11.5, color: "var(--tenue)" }}>
+        {evidencias.length ? `${evidencias.length}/${adjunto.maximo} fotos listas` : adjunto.pista}
+      </span>
       {error && <div className="error" style={{ marginTop: 8 }}>{error}</div>}
       <div className="miniaturas">
         {evidencias.map((e) => (
