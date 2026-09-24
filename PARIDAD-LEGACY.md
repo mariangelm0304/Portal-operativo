@@ -49,9 +49,9 @@ frontend (el frontend no debe traerse los ~1260 registros completos para sumarlo
 
 | # | Endpoint | Reemplaza | Dónde va |
 |---|---|---|---|
-| 2.1 | `GET /admin/resumen/global?periodo=&semana=&zona=` — cumplimiento global (inventario+calidad combinados), evolución semanal, ranking de tiendas con rezago, desglose por zona | `tabResumen()`, líneas 1367-1441 | `app/services/cumplimiento.py` (agregaciones) + router nuevo `app/api/v1/admin.py` |
-| 2.2 | `GET /admin/matriz/{actividad}?periodo=&semana=&zona=` — celda por tienda×semana con estado/fecha/cierre/bodega/conteo/novedad/por, más fila de cumplimiento semanal | `matrizHTML()` + `tabActividad()`, líneas 1293-1490 | idem |
-| 2.3 | `GET /admin/novedades?actividad=&periodo=&semana=&zona=` — feed de `nov` no vacíos, más recientes primero | `novedadesHTML()`/`novedadesActHTML()`, líneas 1329-1341, 1491-1500 | idem |
+| 2.1 | ✅ Hecho: `GET /admin/resumen/global?periodo=&semana=&zona=` en `app/services/resumen.py` | `tabResumen()`, líneas 1367-1441 | — |
+| 2.2 | ✅ Hecho: `GET /admin/matriz/{actividad}?periodo=&semana=&zona=` | `matrizHTML()` + `tabActividad()`, líneas 1293-1490 | — |
+| 2.3 | ✅ Hecho: `GET /admin/novedades?actividad=&periodo=&semana=&zona=` | `novedadesHTML()`/`novedadesActHTML()`, líneas 1329-1341, 1491-1500 | — |
 | 2.4 | `GET /admin/evidencias/resumen` — total de archivos, peso total, última actualización (para los 3 KPI del tab Archivos) | `pintarArchivos()`, líneas 1696-1705 | `app/services/` o calculado inline en el router de evidencias con una query de agregación |
 | 2.5 | `POST /admin/evidencias/purgar` — borra evidencias de semanas anteriores a `hoy - retención`, sin tocar los registros | modal "Purgar archivos antiguos", líneas 1843-1859 | `app/services/` + router de admin; reutiliza `storage.eliminar()` |
 | 2.6 | ✅ Hecho: `GET /api/v1/admin/alertas` expone las 8 notas de calidad de datos como constante en `app/services/alertas.py` | array `BASE.alertas`, usado en línea 1592-1596 | — |
@@ -79,46 +79,25 @@ Archivo: `apps/web/src/pages/Operario/Operario.tsx` (+ `Adjuntos.tsx`).
 
 ## 4. Frontend — Admin
 
-Archivo: `apps/web/src/pages/Admin/Admin.tsx`. Hoy tiene 4 tabs (Resumen básico, Archivos,
-Trazabilidad simple, Maestro ya editable — ver 4.4 y 4.6) contra 7 en el original. Lo que falta
-por completo son los 3 tabs de matrices por actividad (4.3) — el resto son mejoras sobre tabs
-que ya existen.
+Archivo: `apps/web/src/pages/Admin/Admin.tsx`. Hoy tiene los 7 tabs del original (Resumen,
+Inventario, Calidad, Pistoleo, Archivos, Trazabilidad, Maestro).
 
-### 4.1 Filtros globales (barra superior)
+### 4.1 Filtros globales (barra superior) — ✅ hecho (Fase E)
 
-El original filtra **todo** el Admin por Período / Semana / Zona desde `#f-periodo`,
-`#f-semana`, `#f-zona` en la barra (líneas 338-349, `llenarFiltros()`/`eventos()` líneas
-1869-1888). Hoy `apps/web/src/components/Barra.tsx` no los tiene en absoluto — el Admin nuevo
-no puede filtrar por nada.
+`context/FiltrosAdminContext.tsx` + los 3 `<select>` en `Barra.tsx` (visibles solo si
+`sesion.rol === 'admin'`), pasados como query params a resumen/matriz/novedades. Cambiar de
+período resetea la semana, igual que el original.
 
-→ Agregar estado de filtros (contexto o estado local de `Admin.tsx`), los 3 `<select>` en
-`Barra.tsx` (visibles solo si `sesion.rol === 'admin'`), y pasar `periodo/semana/zona` como
-query params a cada endpoint de la sección 2.
+### 4.2 Tab Resumen — ✅ hecho (Fase E)
 
-### 4.2 Tab Resumen — falta casi todo
+6 KPIs, `components/GraficoLinea.tsx` (SVG puro) para la evolución semanal, tabla de tiendas
+con rezago, desglose por zona con barra de progreso, feed de novedades.
 
-| Elemento | Original |
-|---|---|
-| 6 KPIs (cumplimiento global, inventario, calidad, pistoleo, semanas por cerrar, tiendas sin técnico) | líneas 1395-1402 |
-| Gráfico de línea SVG de evolución semanal del cumplimiento | `grafLinea()`, líneas 1272-1292 |
-| Tabla "Tiendas que necesitan gestión" (ranking de rezago) | líneas 1409-1423 |
-| Desglose "Por zona" con barra de progreso | líneas 1425-1434 |
-| Feed de "Novedades" del período filtrado | líneas 1435-1438 |
+### 4.3 Tabs por actividad (Inventario / Calidad / Pistoleo) — ✅ hecho (Fase E)
 
-Hoy `TabResumen` en `Admin.tsx` solo pinta 3 KPI planos por actividad, sin gráfico, sin ranking,
-sin zonas, sin novedades.
-
-### 4.3 Tabs por actividad (Inventario / Calidad / Pistoleo) — no existen
-
-El original tiene un tab por actividad con matriz tienda×semana a color, tooltip por celda,
-fila de cumplimiento semanal al pie, ranking (pistoleo) o gráfico de evolución (inventario/
-calidad), y novedades filtradas a esa actividad (`tabActividad()`, líneas 1443-1500;
-`matrizHTML()`, líneas 1293-1328). **Hoy estos 3 tabs no existen en absoluto** en `Admin.tsx` —
-ni siquiera como placeholder.
-
-→ Nuevo componente `apps/web/src/pages/Admin/Matriz.tsx` reusado por los 3 tabs, alimentado por
-el endpoint 2.2. La grilla de color + tooltip conviene como componente compartido
-(`apps/web/src/components/Matriz.tsx` o similar) porque se repite igual en los 3.
+`components/Matriz.tsx` (grilla tienda×semana a color con tooltip nativo, compartida por los
+3 tabs) + KPIs por actividad + ranking de conteo (pistoleo) o `GraficoLinea` de evolución
+(inventario/calidad) + novedades filtradas a esa actividad.
 
 ### 4.4 Tab Archivos — ✅ hecho (Fase D)
 
@@ -147,13 +126,13 @@ pre-llenar el PIN actual porque el backend no lo devuelve — ver seguridad en C
 
 ### 4.7 Piezas compartidas que no existen todavía en React
 
-| Pieza | Uso en el original | Dónde va |
+| Pieza | Uso en el original | Estado |
 |---|---|---|
-| Modal reusable | alta de persona, confirmar purga, etc. (líneas 1771-1791) | `apps/web/src/components/Modal.tsx` — Ingreso ya resolvió sus 2 casos con estado local inline; a partir de Admin conviene un componente genérico para no repetir el patrón 4 veces más |
-| Toast reusable | confirmaciones/errores tras una acción (línea 604-607, usado en todo el archivo) | `apps/web/src/components/Toast.tsx` + un hook `useToast()` |
-| Tooltip on-hover con `data-tip` | celdas de matriz, chips de historial (líneas 1799-1818) | `apps/web/src/components/Tooltip.tsx`, o directamente `title` nativo como versión simple |
-| Gráfico de línea SVG | evolución de cumplimiento (líneas 1272-1292) | `apps/web/src/components/GraficoLinea.tsx` — es SVG puro, no necesita librería de charts |
-| Barra de progreso (`barrita`) | rezago, zonas, ranking pistoleo (línea 1269-1271) | ya existe la clase CSS `.barrita`; falta el componente React que la use |
+| Modal reusable | alta de persona, confirmar purga, etc. (líneas 1771-1791) | No hecho — Ingreso resolvió sus 2 casos con estado local inline, Archivos usa `confirm()` nativo para purgar. Se justifica un componente genérico solo si aparece un tercer caso. |
+| Toast reusable | confirmaciones/errores tras una acción (línea 604-607) | No hecho — cada tab usa su propio mensaje de estado inline (`aviso`/`exito`/`error`); alcanza mientras no haya acciones concurrentes que necesiten apilar mensajes. |
+| Tooltip on-hover con `data-tip` | celdas de matriz, chips de historial | ✅ Resuelto con `title` nativo (versión simple, sin componente aparte). |
+| Gráfico de línea SVG | evolución de cumplimiento | ✅ Hecho: `apps/web/src/components/GraficoLinea.tsx` (Fase E). |
+| Barra de progreso (`barrita`) | rezago, zonas, ranking pistoleo | ✅ Hecho: componente `Barrita` en `Admin.tsx` (Fase E). |
 
 ## 5. Resumen de prioridad
 
@@ -205,7 +184,7 @@ No todo pesa igual. Orden sugerido:
   - Frontend: nuevo tab con KPIs, filtros actividad/zona, tabla con descarga, botón purgar con
     confirmación (Modal).
 
-- [ ] **Fase E — Admin: Resumen completo + Matrices por actividad**
+- [x] **Fase E — Admin: Resumen completo + Matrices por actividad**
   - Backend: endpoints 2.1, 2.2, 2.3 con filtros período/semana/zona.
   - Frontend: filtros globales en `Barra.tsx`; `GraficoLinea.tsx`; componente de matriz
     compartido; 3 tabs nuevos (Inventario/Calidad/Pistoleo); Resumen completo.
