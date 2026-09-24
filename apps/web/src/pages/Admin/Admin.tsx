@@ -2,16 +2,27 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { apiFetch, ApiError } from "../../api/client";
 import { descargarArchivo } from "../../api/descargar";
-import type { AdminConfig, Evidencia, Tienda } from "../../api/types";
+import type { AdminConfig, Evidencia, MatrizActividad, NovedadItem, ResumenGlobal, Tienda } from "../../api/types";
+import { GraficoLinea } from "../../components/GraficoLinea";
+import { Matriz } from "../../components/Matriz";
 import { useAuth } from "../../context/AuthContext";
+import { paramsFiltros, useFiltrosAdmin } from "../../context/FiltrosAdminContext";
 
-interface ResumenKPI {
-  actividad: string;
-  cumplen: number;
-  incumplen: number;
-  excluyen: number;
-  total: number;
-  porcentaje_cumplimiento: number;
+function pct1(n: number | null): string {
+  if (n == null) return "—";
+  return `${(Math.round(n * 10) / 10).toFixed(1).replace(".", ",")} %`;
+}
+
+function tonoPct(p: number | null): "ok" | "medio" | "falla" | "pend" {
+  if (p == null) return "pend";
+  if (p >= 90) return "ok";
+  if (p >= 75) return "medio";
+  return "falla";
+}
+
+function qs(params: Record<string, string>): string {
+  const s = new URLSearchParams(params).toString();
+  return s ? `?${s}` : "";
 }
 
 interface Traza {
@@ -33,6 +44,9 @@ interface ResumenEvidencias {
 
 const TABS = [
   { id: "resumen", etiqueta: "Resumen" },
+  { id: "inventario", etiqueta: "Inventario cíclico" },
+  { id: "calidad", etiqueta: "Bitácora de calidad" },
+  { id: "pistoleo", etiqueta: "Pistoleo" },
   { id: "archivos", etiqueta: "Archivos" },
   { id: "trazas", etiqueta: "Trazabilidad" },
   { id: "maestro", etiqueta: "Maestro y datos" },
@@ -53,6 +67,7 @@ export function Admin() {
         ))}
       </div>
       {tab === "resumen" && <TabResumen token={sesion.token} />}
+      {(tab === "inventario" || tab === "calidad" || tab === "pistoleo") && <TabActividad actividad={tab} token={sesion.token} />}
       {tab === "archivos" && <TabArchivos token={sesion.token} />}
       {tab === "trazas" && <TabTrazas token={sesion.token} />}
       {tab === "maestro" && <TabMaestro token={sesion.token} />}
@@ -61,23 +76,307 @@ export function Admin() {
 }
 
 function TabResumen({ token }: { token: string }) {
+  const filtros = useFiltrosAdmin();
+  const params = paramsFiltros(filtros);
   const { data } = useQuery({
-    queryKey: ["admin-resumen"],
-    queryFn: () => apiFetch<ResumenKPI[]>("/api/v1/admin/resumen", { token }),
+    queryKey: ["admin-resumen-global", params],
+    queryFn: () => apiFetch<ResumenGlobal>(`/api/v1/admin/resumen/global${qs(params)}`, { token }),
+  });
+  const { data: novedades } = useQuery({
+    queryKey: ["admin-novedades", params],
+    queryFn: () => apiFetch<NovedadItem[]>(`/api/v1/admin/novedades${qs(params)}`, { token }),
   });
 
+  if (!data) return null;
+
   return (
-    <div className="kpis">
-      {data?.map((k) => (
-        <div key={k.actividad} className="kpi a-marca">
-          <div className="k-l">{k.actividad}</div>
-          <div className="k-v">{k.porcentaje_cumplimiento.toLocaleString("es-CO")}%</div>
+    <>
+      <div className="kpis">
+        <div className={`kpi a-${tonoPct(data.cumplimiento_global.pct)}`}>
+          <div className="k-l">Cumplimiento global</div>
+          <div className="k-v">{pct1(data.cumplimiento_global.pct)}</div>
           <div className="k-s">
-            {k.cumplen} cumplen · {k.incumplen} incumplen · {k.excluyen} excluidos
+            {data.cumplimiento_global.cumple} de {data.cumplimiento_global.elegibles} actividades exigibles
+          </div>
+        </div>
+        <div className="kpi a-ok">
+          <div className="k-l">Inventario cíclico</div>
+          <div className="k-v">{pct1(data.inventario.pct)}</div>
+          <div className="k-s">{data.inventario.parcial} con cierre parcial</div>
+        </div>
+        <div className="kpi a-ok">
+          <div className="k-l">Bitácora de calidad</div>
+          <div className="k-v">{pct1(data.calidad.pct)}</div>
+          <div className="k-s">{data.calidad.sin_tecnico} celdas sin técnico</div>
+        </div>
+        <div className="kpi a-marca">
+          <div className="k-l">Unidades pistoleadas</div>
+          <div className="k-v">{data.pistoleo.conteo.toLocaleString("es-CO")}</div>
+          <div className="k-s">{data.pistoleo.cumple} registros de conteo</div>
+        </div>
+        <div className={`kpi a-${data.semanas_por_cerrar ? "medio" : "ok"}`}>
+          <div className="k-l">Semanas por cerrar</div>
+          <div className="k-v">{data.semanas_por_cerrar}</div>
+          <div className="k-s">celdas aún en pendiente</div>
+        </div>
+        <div className={`kpi a-${data.tiendas_sin_tecnico ? "falla" : "ok"}`}>
+          <div className="k-l">Tiendas sin técnico</div>
+          <div className="k-v">{data.tiendas_sin_tecnico}</div>
+          <div className="k-s">de 21 tiendas del programa</div>
+        </div>
+      </div>
+      <div className="g2">
+        <div className="pila">
+          <div className="tj">
+            <div className="tj-h">
+              <h3>Cumplimiento semanal</h3>
+              <span className="nota">{filtros.periodo === "todas" ? "Todo el programa" : filtros.periodo} · inventario + bitácora</span>
+            </div>
+            <div className="tj-b">
+              <GraficoLinea puntos={data.evolucion.map((e) => e.pct)} etiquetas={data.evolucion.map((e) => `S${e.semana}`)} />
+            </div>
+          </div>
+          <div className="tj">
+            <div className="tj-h">
+              <h3>Tiendas que necesitan gestión</h3>
+              <span className="nota">{data.rezago.length} tiendas</span>
+            </div>
+            <div className="tj-b" style={{ padding: 0 }}>
+              {data.rezago.length ? (
+                <div className="tabla-env">
+                  <table className="dat">
+                    <thead>
+                      <tr>
+                        <th>Tienda</th>
+                        <th>Zona</th>
+                        <th>Cumplimiento</th>
+                        <th className="n">Reportes faltantes</th>
+                        <th className="n">Semanas sin técnico</th>
+                        <th>Motivo principal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.rezago.map((r) => (
+                        <tr key={r.ag}>
+                          <td>
+                            <b>{r.tienda}</b> <span className="mono" style={{ color: "var(--tenue)", fontSize: 10 }}>{r.ag}</span>
+                          </td>
+                          <td>{r.zona}</td>
+                          <td>
+                            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                              <Barrita pct={r.pct ?? 0} tono={tonoPct(r.pct)} />
+                              <span className="mono" style={{ fontSize: 11.5 }}>
+                                {r.pct == null ? "—" : `${Math.round(r.pct)}%`}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="n">{r.fallas || "—"}</td>
+                          <td className="n">{r.sin_tecnico || "—"}</td>
+                          <td>
+                            {r.sin_tecnico ? (
+                              <span className="chip e-falla">Sin técnico asignado</span>
+                            ) : r.fallas ? (
+                              <span className="chip e-medio">Reportes faltantes</span>
+                            ) : (
+                              <span className="chip e-pend">En curso</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="vacio">Todas las tiendas del filtro están al día.</div>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="pila">
+          <div className="tj">
+            <div className="tj-h">
+              <h3>Por zona</h3>
+            </div>
+            <div className="tj-b">
+              <div className="lista">
+                {data.zonas.map((z) => (
+                  <div key={z.zona} className="item">
+                    <div className="item-b">
+                      <div className="item-t">
+                        {z.zona} <small style={{ marginLeft: "auto" }}>{pct1(z.pct)}</small>
+                      </div>
+                      <div style={{ marginTop: 5 }}>
+                        <Barrita pct={z.pct ?? 0} tono={tonoPct(z.pct)} />
+                      </div>
+                      <div className="item-x" style={{ fontSize: 11 }}>
+                        {z.cumple} de {z.elegibles} actividades cumplidas
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="tj">
+            <div className="tj-h">
+              <h3>Novedades</h3>
+              <span className="nota">período filtrado</span>
+            </div>
+            <div className="tj-b" style={{ padding: "0 15px" }}>
+              <NovedadesList novedades={novedades} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function Barrita({ pct, tono }: { pct: number; tono: "ok" | "medio" | "falla" | "pend" }) {
+  return (
+    <div className="barrita">
+      <i style={{ width: `${Math.max(2, pct)}%`, background: `var(--${tono})` }} />
+    </div>
+  );
+}
+
+function NovedadesList({ novedades }: { novedades: NovedadItem[] | undefined }) {
+  if (!novedades?.length) return <div className="vacio">Sin novedades reportadas en el período.</div>;
+  return (
+    <div className="lista">
+      {novedades.map((n, i) => (
+        <div key={i} className="item">
+          <div className="raya" style={{ background: `var(--${n.tono === "pend" ? "pend" : n.tono})` }} />
+          <div className="item-b">
+            <div className="item-t">
+              {n.tienda} <small>{n.actividad} · S{n.semana}{n.por ? ` · ${n.por}` : ""}</small>
+            </div>
+            <div className="item-x">{n.nov}</div>
           </div>
         </div>
       ))}
     </div>
+  );
+}
+
+function TabActividad({ actividad, token }: { actividad: "inventario" | "calidad" | "pistoleo"; token: string }) {
+  const filtros = useFiltrosAdmin();
+  const params = paramsFiltros(filtros);
+  const { data: matriz } = useQuery({
+    queryKey: ["admin-matriz", actividad, params],
+    queryFn: () => apiFetch<MatrizActividad>(`/api/v1/admin/matriz/${actividad}${qs(params)}`, { token }),
+  });
+  const { data: novedades } = useQuery({
+    queryKey: ["admin-novedades", actividad, params],
+    queryFn: () => apiFetch<NovedadItem[]>(`/api/v1/admin/novedades${qs({ ...params, actividad })}`, { token }),
+  });
+
+  if (!matriz) return null;
+
+  const cumple = matriz.tiendas.reduce((a, f) => a + f.celdas.filter((c) => c.tono === "ok" || c.tono === "medio").length, 0);
+  const incumple = matriz.tiendas.reduce((a, f) => a + f.celdas.filter((c) => c.tono === "falla").length, 0);
+  const ausencias = matriz.tiendas.reduce((a, f) => a + f.celdas.filter((c) => c.tono === "ausen").length, 0);
+  const pendientes = matriz.tiendas.reduce((a, f) => a + f.celdas.filter((c) => c.tono === "pend").length, 0);
+  const sinTecnico = matriz.tiendas.filter((f) => actividad === "calidad" && f.celdas.some((c) => c.estado === "SIN_TECNICO")).length;
+  const pctPromedio = matriz.cumplimiento_semanal?.length
+    ? matriz.cumplimiento_semanal.reduce((a, p) => a + (p.pct ?? 0), 0) / matriz.cumplimiento_semanal.length
+    : null;
+
+  return (
+    <>
+      <div className="kpis">
+        {actividad === "pistoleo" ? (
+          <div className="kpi a-marca">
+            <div className="k-l">Unidades pistoleadas</div>
+            <div className="k-v">{matriz.tiendas.reduce((a, f) => a + f.conteo, 0).toLocaleString("es-CO")}</div>
+            <div className="k-s">{cumple} registros semanales</div>
+          </div>
+        ) : (
+          <div className={`kpi a-${tonoPct(pctPromedio)}`}>
+            <div className="k-l">Cumplimiento</div>
+            <div className="k-v">{pct1(pctPromedio)}</div>
+          </div>
+        )}
+        <div className="kpi a-ok">
+          <div className="k-l">Cumplidas</div>
+          <div className="k-v">{cumple}</div>
+        </div>
+        <div className={`kpi a-${incumple ? "falla" : "ok"}`}>
+          <div className="k-l">Sin cumplir</div>
+          <div className="k-v">{incumple}</div>
+          <div className="k-s">reportes que no llegaron</div>
+        </div>
+        <div className="kpi a-ausen">
+          <div className="k-l">Ausencias justificadas</div>
+          <div className="k-v">{ausencias}</div>
+          <div className="k-s">excluidas del cálculo</div>
+        </div>
+        <div className="kpi a-medio">
+          <div className="k-l">Pendientes</div>
+          <div className="k-v">{pendientes}</div>
+          <div className="k-s">semanas aún abiertas</div>
+        </div>
+        {actividad === "calidad" && (
+          <div className={`kpi a-${sinTecnico ? "falla" : "ok"}`}>
+            <div className="k-l">Sin técnico</div>
+            <div className="k-v">{sinTecnico}</div>
+            <div className="k-s">tiendas sin responsable</div>
+          </div>
+        )}
+      </div>
+      <div className="tj" style={{ marginBottom: 14 }}>
+        <div className="tj-h">
+          <h3>Matriz tienda × semana</h3>
+          <span className="nota">{matriz.tiendas.length} tiendas · {matriz.semanas.length} semanas</span>
+        </div>
+        <Matriz actividad={actividad} matriz={matriz} />
+      </div>
+      <div className="g2">
+        <div className="tj">
+          <div className="tj-h">
+            <h3>{actividad === "pistoleo" ? "Ranking de conteo" : "Evolución del cumplimiento"}</h3>
+          </div>
+          <div className="tj-b" style={matriz.ranking ? { padding: 0 } : undefined}>
+            {matriz.ranking ? (
+              <div className="tabla-env">
+                <table className="dat">
+                  <thead>
+                    <tr>
+                      <th>AG</th>
+                      <th>Tienda</th>
+                      <th>Unidades</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {matriz.ranking.map((r) => (
+                      <tr key={r.ag}>
+                        <td className="mono" style={{ color: "var(--tenue)" }}>{r.ag}</td>
+                        <td>{r.tienda}</td>
+                        <td className="mono">{r.valor.toLocaleString("es-CO")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <GraficoLinea
+                puntos={(matriz.evolucion ?? []).map((e) => e.pct)}
+                etiquetas={(matriz.evolucion ?? []).map((e) => `S${e.semana}`)}
+                alto={150}
+              />
+            )}
+          </div>
+        </div>
+        <div className="tj">
+          <div className="tj-h">
+            <h3>Novedades</h3>
+          </div>
+          <div className="tj-b" style={{ padding: "0 15px" }}>
+            <NovedadesList novedades={novedades} />
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 

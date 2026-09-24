@@ -91,6 +91,59 @@ export interface AdminConfig {
   retencion_semanas: number;
 }
 
+export interface CeldaMatriz {
+  semana: number;
+  estado: string | null;
+  tono: "ok" | "medio" | "falla" | "ausen" | "pend";
+  datos: Record<string, unknown>;
+  por: string | null;
+  actualizado_en: string | null;
+}
+
+export interface FilaMatriz {
+  id: number;
+  ag: string;
+  nombre: string;
+  zona: string;
+  celdas: CeldaMatriz[];
+  conteo: number;
+  pct: number | null;
+}
+
+export interface PuntoSemana {
+  semana: number;
+  pct: number | null;
+}
+
+export interface MatrizActividad {
+  semanas: { n: number; info: { lunes: string; domingo: string; festivos: boolean } }[];
+  tiendas: FilaMatriz[];
+  cumplimiento_semanal: PuntoSemana[] | null;
+  ranking: { tienda: string; ag: string; valor: number }[] | null;
+  evolucion: PuntoSemana[] | null;
+}
+
+export interface ResumenGlobal {
+  cumplimiento_global: { pct: number | null; cumple: number; elegibles: number };
+  inventario: { pct: number | null; cumple: number; elegibles: number; parcial: number };
+  calidad: { pct: number | null; cumple: number; elegibles: number; sin_tecnico: number };
+  pistoleo: { conteo: number; cumple: number };
+  semanas_por_cerrar: number;
+  tiendas_sin_tecnico: number;
+  evolucion: PuntoSemana[];
+  zonas: { zona: string; pct: number | null; cumple: number; elegibles: number }[];
+  rezago: { tienda: string; ag: string; zona: string; pct: number | null; fallas: number; sin_tecnico: number }[];
+}
+
+export interface NovedadItem {
+  tienda: string;
+  actividad: string;
+  semana: number;
+  nov: string;
+  tono: "ok" | "medio" | "falla" | "ausen" | "pend";
+  por: string;
+}
+
 export interface SesionToken {
   access_token: string;
   token_type: string;
