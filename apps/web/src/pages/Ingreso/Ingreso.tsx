@@ -186,21 +186,22 @@ export function Ingreso() {
             </select>
           </div>
 
-          {opciones.find((o) => o.valor === opcion)?.data.tipo === "auxiliar-generico" && (
-            <div className="campo">
-              <label htmlFor="i-nombre">
-                Tu nombre <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>(opcional)</span>
-              </label>
-              <input
-                id="i-nombre"
-                type="text"
-                value={nombreAuxiliar}
-                onChange={(e) => setNombreAuxiliar(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && document.getElementById("i-pin")?.focus()}
-                placeholder="Para que el registro quede a tu nombre"
-              />
-            </div>
-          )}
+          {/* Visible siempre, igual que el original (legacy/index-original.html, línea
+              374): solo se manda al backend cuando aplica ("Auxiliar de piso"), pero el
+              campo en sí no se esconde según la persona elegida. */}
+          <div className="campo">
+            <label htmlFor="i-nombre">
+              Tu nombre <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>(opcional)</span>
+            </label>
+            <input
+              id="i-nombre"
+              type="text"
+              value={nombreAuxiliar}
+              onChange={(e) => setNombreAuxiliar(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && document.getElementById("i-pin")?.focus()}
+              placeholder="Para que el registro quede a tu nombre"
+            />
+          </div>
 
           {opciones.find((o) => o.valor === opcion)?.data.tipo === "nueva" && (
             <>
