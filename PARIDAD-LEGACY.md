@@ -1,5 +1,11 @@
 # Paridad con `legacy/index-original.html` — qué falta y plan para cerrarlo
 
+**Estado: las 7 fases del plan de ejecución (sección 6) están cerradas.** El monorepo tiene
+paridad funcional completa con el original, con las mejoras de seguridad/arquitectura ya
+descritas en [CLAUDE.md](CLAUDE.md) y las 3 decisiones de diseño de la sección 3 (7-9). Este
+documento queda como referencia histórica de la migración y como el lugar donde registrar la
+siguiente brecha si aparece una.
+
 Este documento nace de releer **todo** `legacy/index-original.html` línea por línea (no solo las
 vistas que ya se habían portado) y compararlo contra lo que hoy existe en `apps/api` y
 `apps/web`. Lista cada elemento del original que todavía no tiene equivalente, agrupado por
@@ -75,7 +81,7 @@ Archivo: `apps/web/src/pages/Operario/Operario.tsx` (+ `Adjuntos.tsx`).
 | 3.7 | Confirmación de solo-lectura tras guardar, con botón "Corregir registro" para reabrir el formulario | líneas 931-953 | **Decidido: no se implementa.** Se mantiene el formulario siempre editable — más simple de usar y mantener, sin perder funcionalidad. |
 | 3.8 | Adjuntos múltiples fuerzan cámara en vivo (`capture="environment"`), no permiten elegir de galería — es una regla de negocio (evidencia fresca, no reciclada) | línea 1004-1008 | **Decidido: sí se implementa.** `Adjuntos.tsx` debe agregar `capture="environment"` al input de adjuntos múltiples y quitar la posibilidad de elegir archivo existente. |
 | 3.9 | Compresión de fotos en el cliente antes de subir (máx. 2000px, JPEG calidad .85) | `prepararEvidencia()`, líneas 1141-1163 | **Decidido: no se implementa.** El backend nuevo ya no depende de base64/Apps Script; el límite de 15 MB se valida server-side tal cual. |
-| 3.10 | Enter en el campo PIN dispara "Entrar"; Enter en nombre pasa el foco al PIN | líneas 1881-1882 (Ingreso, no Operario, pero mismo patrón de UX) | No implementado — detalle menor de UX |
+| 3.10 | Enter en el campo PIN dispara "Entrar"; Enter en nombre pasa el foco al PIN | líneas 1881-1882 (Ingreso, no Operario, pero mismo patrón de UX) | ✅ Hecho (Fase G) — también en el PIN de administrador |
 
 ## 4. Frontend — Admin
 
@@ -106,14 +112,13 @@ por actividad y zona, tabla con botón "Descargar" real, "Actualizar" y "Purgar 
 (`POST /api/v1/admin/evidencias/purgar`, con confirmación nativa en vez de modal — ver 4.7,
 todavía no hay un componente Modal reusable).
 
-### 4.5 Tab Trazabilidad — existe pero muy reducido
+### 4.5 Tab Trazabilidad — ✅ hecho (Fase F)
 
-Hoy es una tabla plana. Falta (líneas 1505-1564):
-- 4 KPIs (registros desde el portal, con evidencia adjunta, personas que han registrado,
-  registros históricos migrados).
-- Botón/enlace de evidencia por fila (o "enlace externo" si usó `link` en vez de adjunto).
-- Card "Quién más reporta" (ranking de personas por cantidad de registros).
-- Card explicativa "Qué cambia con el portal".
+4 KPIs (`GET /api/v1/trazas/resumen`), botón de evidencia por fila o "enlace externo",
+card "Quién más reporta" (`GET /api/v1/trazas/top-personas`), card explicativa. `Traza` es
+insert-only (a diferencia del `overlay` del original, que solo guardaba el último estado por
+celda) — "registros desde el portal" se cuenta por celda única (actividad+tienda+semana), no
+por fila de traza, para no inflar el número si algo se corrige más de una vez.
 
 ### 4.6 Tab Maestro — ✅ hecho (Fase C)
 
@@ -189,12 +194,12 @@ No todo pesa igual. Orden sugerido:
   - Frontend: filtros globales en `Barra.tsx`; `GraficoLinea.tsx`; componente de matriz
     compartido; 3 tabs nuevos (Inventario/Calidad/Pistoleo); Resumen completo.
 
-- [ ] **Fase F — Admin: Trazabilidad enriquecida**
+- [x] **Fase F — Admin: Trazabilidad enriquecida**
   - KPIs, evidencia por fila, ranking "quién más reporta", card explicativa.
 
-- [ ] **Fase G — Pulido de UX**
-  - Enter para navegar el formulario de Ingreso, demás detalles de la sección 3 que queden.
-    (La compresión de imágenes queda descartada, ver 3.9.)
+- [x] **Fase G — Pulido de UX**
+  - Enter para navegar el formulario de Ingreso (nombre → PIN → Entrar, también en el PIN de
+    administrador). La compresión de imágenes queda descartada, ver 3.9.
 
 ## Verificación
 

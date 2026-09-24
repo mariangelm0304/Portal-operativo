@@ -180,6 +180,7 @@ export function Ingreso() {
                 type="text"
                 value={nombreAuxiliar}
                 onChange={(e) => setNombreAuxiliar(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && document.getElementById("i-pin")?.focus()}
                 placeholder="Para que el registro quede a tu nombre"
               />
             </div>
@@ -213,6 +214,7 @@ export function Ingreso() {
               placeholder="••••"
               value={pin}
               onChange={(e) => setPin(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && entrar()}
             />
           </div>
 
@@ -240,7 +242,14 @@ export function Ingreso() {
             <p className="nota-pie">Vista de seguimiento para Trade Marketing: matriz de cumplimiento, trazabilidad, maestro y exportación.</p>
             <div className="campo">
               <label htmlFor="a-pin">Clave de administrador</label>
-              <input id="a-pin" type="password" autoComplete="off" value={pinAdmin} onChange={(e) => setPinAdmin(e.target.value)} />
+              <input
+                id="a-pin"
+                type="password"
+                autoComplete="off"
+                value={pinAdmin}
+                onChange={(e) => setPinAdmin(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && entrarAdmin()}
+              />
             </div>
             {errorAdmin && <div className="error">{errorAdmin}</div>}
             <button className="btn btn-p" onClick={entrarAdmin}>
