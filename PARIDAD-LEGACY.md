@@ -54,7 +54,7 @@ frontend (el frontend no debe traerse los ~1260 registros completos para sumarlo
 | 2.3 | `GET /admin/novedades?actividad=&periodo=&semana=&zona=` — feed de `nov` no vacíos, más recientes primero | `novedadesHTML()`/`novedadesActHTML()`, líneas 1329-1341, 1491-1500 | idem |
 | 2.4 | `GET /admin/evidencias/resumen` — total de archivos, peso total, última actualización (para los 3 KPI del tab Archivos) | `pintarArchivos()`, líneas 1696-1705 | `app/services/` o calculado inline en el router de evidencias con una query de agregación |
 | 2.5 | `POST /admin/evidencias/purgar` — borra evidencias de semanas anteriores a `hoy - retención`, sin tocar los registros | modal "Purgar archivos antiguos", líneas 1843-1859 | `app/services/` + router de admin; reutiliza `storage.eliminar()` |
-| 2.6 | Exponer `alertas` (8 notas de calidad de datos de la migración, ver `scripts/data/base.json`) en algún endpoint de solo-lectura para Admin → Maestro | array `BASE.alertas`, usado en línea 1592-1596 | hoy se descarta al sembrar; agregar tabla `alertas_dato` simple (o servirlo como JSON estático desde `app/services/`) |
+| 2.6 | ✅ Hecho: `GET /api/v1/admin/alertas` expone las 8 notas de calidad de datos como constante en `app/services/alertas.py` | array `BASE.alertas`, usado en línea 1592-1596 | — |
 
 `GET /admin/resumen` (el que ya existe, `app/api/v1/admin.py`) queda como está para el caso
 simple de "una semana, todas las tiendas" — los endpoints de arriba son variantes con filtros
@@ -79,8 +79,9 @@ Archivo: `apps/web/src/pages/Operario/Operario.tsx` (+ `Adjuntos.tsx`).
 
 ## 4. Frontend — Admin
 
-Archivo: `apps/web/src/pages/Admin/Admin.tsx`. Esta es el área con más brecha: hoy solo tiene 3
-tabs (Resumen básico, Trazabilidad simple, Maestro de solo lectura) contra 7 en el original.
+Archivo: `apps/web/src/pages/Admin/Admin.tsx`. Esta sigue siendo el área con más brecha: hoy
+tiene 3 tabs (Resumen básico, Trazabilidad simple, Maestro ya editable — ver 4.6) contra 7 en
+el original. Faltan enteros los tabs de matrices por actividad y Archivos (4.3, 4.4).
 
 ### 4.1 Filtros globales (barra superior)
 
@@ -134,20 +135,14 @@ Hoy es una tabla plana. Falta (líneas 1505-1564):
 - Card "Quién más reporta" (ranking de personas por cantidad de registros).
 - Card explicativa "Qué cambia con el portal".
 
-### 4.6 Tab Maestro — solo lectura, falta lo editable
+### 4.6 Tab Maestro — ✅ hecho (Fase C)
 
-Hoy `TabMaestro` en `Admin.tsx` es una tabla de solo lectura. Falta (líneas 1566-1629,
-`conectarAdmin()` líneas 1819-1835):
-- Input de PIN editable por tienda + botón "Guardar PIN" → ya existe el endpoint
-  `POST /api/v1/admin/pin-tienda`, solo falta la UI.
-- Pill "verificar" cuando `tienda.verificar` es true.
-- Card "Revisiones pendientes del dato" con las alertas de migración (ver 2.6).
-- Card "Exportar" con botones CSV/JSON → los endpoints `/api/v1/export/csv` y
-  `/api/v1/export/json` **ya existen y funcionan**, solo falta el botón que dispare la
-  descarga del navegador.
-- Card "Configuración": cambiar PIN de admin (`POST /api/v1/admin/pin-admin`, ya existe) y
-  semanas de retención (`PUT /api/v1/admin/config`, ya existe) — solo falta la UI.
-- Card "Origen de los datos" (texto informativo sobre la migración).
+PIN editable por tienda + "Guardar PIN" (guarda todos los cambios de la tabla de una vez, sin
+pre-llenar el PIN actual porque el backend no lo devuelve — ver seguridad en CLAUDE.md); pill
+"verificar"; card "Revisiones pendientes del dato" con las 8 alertas de la migración
+(`GET /api/v1/admin/alertas`, nuevo); botones de export CSV/JSON que descargan de verdad
+(`apps/web/src/api/descargar.ts`); card de Configuración (cambiar PIN admin, retención); card
+"Origen de los datos".
 
 ### 4.7 Piezas compartidas que no existen todavía en React
 
@@ -198,7 +193,7 @@ No todo pesa igual. Orden sugerido:
   - `capture="environment"` forzado en adjuntos múltiples (decidido, ver 3.8). El flujo de
     confirmación + "Corregir registro" no se implementa (decidido, ver 3.7).
 
-- [ ] **Fase C — Admin: Maestro editable + Exportar + Configuración**
+- [x] **Fase C — Admin: Maestro editable + Exportar + Configuración**
   - PIN editable por tienda + botón guardar (llama a `POST /api/v1/admin/pin-tienda`).
   - Botones CSV/JSON que disparan descarga desde `/api/v1/export/csv` y `/export/json`.
   - Card de configuración: cambiar PIN admin, retención (llaman a endpoints ya existentes).
